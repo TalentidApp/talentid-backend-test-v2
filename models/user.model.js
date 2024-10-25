@@ -60,9 +60,7 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     phone: {
-      type: Number,
-      minLength: 10,
-      maxLength: 10,
+      type:String
     },
     company: {
       type: String,
