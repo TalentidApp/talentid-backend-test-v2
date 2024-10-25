@@ -1,0 +1,10 @@
+Demo ENV
+
+PORT =
+
+MONGO_URI = 
+
+JWT_SECRET = 
+
+
+

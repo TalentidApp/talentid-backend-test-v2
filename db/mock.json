@@ -1,0 +1,216 @@
+[
+  {
+    "name": "John Doe",
+    "email": "johndoe@example.com",
+    "mobileNumber": "1234567890",
+    "interviews": [
+      {
+        "companyName": "Acme Corp",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 3,
+        "roundsOfInterviews": [
+          "Technical Interview",
+          "HR Interview",
+          "Final Round"
+        ]
+      },
+      {
+        "companyName": "TechGiant Inc.",
+        "interviewStatus": "Rejected",
+        "totalRoundsOfInterviews": 2,
+        "roundsOfInterviews": ["Coding Challenge", "Technical Interview"]
+      }
+    ]
+  },
+  {
+    "name": "Jane Smith",
+    "email": "janesmith@example.com",
+    "interviews": [
+      {
+        "companyName": "Innovators LLC",
+        "interviewStatus": "On Hold",
+        "totalRoundsOfInterviews": 1,
+        "roundsOfInterviews": ["Initial Screening"]
+      }
+    ]
+  },
+  {
+    "name": "Michael Johnson",
+    "email": "michaeljohnson@example.com",
+    "mobileNumber": "9876543210",
+    "interviews": [
+      {
+        "companyName": "TechPioneer Corp",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 3,
+        "roundsOfInterviews": [
+          "Coding Test",
+          "Technical Interview",
+          "Final Round"
+        ]
+      },
+      {
+        "companyName": "Innovators LLC",
+        "interviewStatus": "Rejected",
+        "totalRoundsOfInterviews": 2,
+        "roundsOfInterviews": ["Initial Screening", "Technical Interview"]
+      }
+    ]
+  },
+  {
+    "name": "Emily Wilson",
+    "email": "emilywilson@example.com",
+    "mobileNumber": "5555555555",
+    "interviews": [
+      {
+        "companyName": "SoftwareSolutions Inc.",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 4,
+        "roundsOfInterviews": [
+          "Coding Test",
+          "Technical Interview",
+          "HR Interview",
+          "Final Round"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "David Thompson",
+    "email": "davidthompson@example.com",
+    "interviews": [
+      {
+        "companyName": "TechMasters LLC",
+        "interviewStatus": "Rejected",
+        "totalRoundsOfInterviews": 2,
+        "roundsOfInterviews": ["Initial Screening", "Technical Interview"]
+      },
+      {
+        "companyName": "Innovators LLC",
+        "interviewStatus": "On Hold",
+        "totalRoundsOfInterviews": 1,
+        "roundsOfInterviews": ["Initial Screening"]
+      }
+    ]
+  },
+  {
+    "name": "Sarah Davis",
+    "email": "sarahdavis@example.com",
+    "mobileNumber": "1112223333",
+    "interviews": [
+      {
+        "companyName": "Acme Corp",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 3,
+        "roundsOfInterviews": [
+          "Technical Interview",
+          "HR Interview",
+          "Final Round"
+        ]
+      },
+      {
+        "companyName": "TechPioneer Corp",
+        "interviewStatus": "Rejected",
+        "totalRoundsOfInterviews": 2,
+        "roundsOfInterviews": ["Coding Test", "Technical Interview"]
+      }
+    ]
+  },
+  {
+    "name": "Robert Anderson",
+    "email": "robertanderson@example.com",
+    "interviews": [
+      {
+        "companyName": "SoftwareSolutions Inc.",
+        "interviewStatus": "On Hold",
+        "totalRoundsOfInterviews": 1,
+        "roundsOfInterviews": ["Initial Screening"]
+      },
+      {
+        "companyName": "TechMasters LLC",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 3,
+        "roundsOfInterviews": [
+          "Coding Challenge",
+          "Technical Interview",
+          "Final Round"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Jessica Taylor",
+    "email": "jessicataylor@example.com",
+    "mobileNumber": "4444444444",
+    "interviews": [
+      {
+        "companyName": "Innovators LLC",
+        "interviewStatus": "Rejected",
+        "totalRoundsOfInterviews": 2,
+        "roundsOfInterviews": ["Initial Screening", "Technical Interview"]
+      },
+      {
+        "companyName": "TechGiant Inc.",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 3,
+        "roundsOfInterviews": [
+          "Coding Challenge",
+          "Technical Interview",
+          "Final Round"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Christopher Clark",
+    "email": "christopherclark@example.com",
+    "interviews": [
+      {
+        "companyName": "Acme Corp",
+        "interviewStatus": "On Hold",
+        "totalRoundsOfInterviews": 1,
+        "roundsOfInterviews": ["Initial Screening"]
+      }
+    ]
+  },
+  {
+    "name": "Amanda Lewis",
+    "email": "amandalewis@example.com",
+    "mobileNumber": "7777777777",
+    "interviews": [
+      {
+        "companyName": "TechPioneer Corp",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 4,
+        "roundsOfInterviews": [
+          "Coding Test",
+          "Technical Interview",
+          "HR Interview",
+          "Final Round"
+        ]
+      },
+      {
+        "companyName": "SoftwareSolutions Inc.",
+        "interviewStatus": "Rejected",
+        "totalRoundsOfInterviews": 2,
+        "roundsOfInterviews": ["Initial Screening", "Technical Interview"]
+      }
+    ]
+  },
+  {
+    "name": "Matthew Harris",
+    "email": "matthewharris@example.com",
+    "interviews": [
+      {
+        "companyName": "TechMasters LLC",
+        "interviewStatus": "Selected",
+        "totalRoundsOfInterviews": 3,
+        "roundsOfInterviews": [
+          "Coding Challenge",
+          "Technical Interview",
+          "Final Round"
+        ]
+      }
+    ]
+  }
+]
