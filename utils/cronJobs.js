@@ -40,11 +40,12 @@ const refreshAccessToken = async () => {
 
 // Schedule the cron job to run every 7 hours
 export const startCronJob = () => {
-    cron.schedule('0 */7 * * *', () => {
+    cron.schedule('0 * * * *', () => {
         console.log('Running token refresh cron job...');
         refreshAccessToken();
     });
 };
+
 
 
 // export const startCronJob = () => {
