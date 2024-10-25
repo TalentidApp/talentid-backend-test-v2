@@ -33,7 +33,7 @@ app.use("/api/users", userRoutes);
 
 app.use("/api/payments", paymentRoute);
 
-app.listen(4000, () => {
+app.listen(PORT, () => {
 
   console.log(`Server started at http://localhost:${PORT}`);
 
