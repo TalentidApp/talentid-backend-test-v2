@@ -529,17 +529,6 @@ const resetPassword = async (req, res) => {
       })
     }
 
-    if (password !== confirmPasswordValue) {
-
-      return res.status(400).json({
-
-        data: null,
-        message: "Password dosent match ",
-        error: null,
-
-      })
-
-    }
 
     // const user = await User.findById(req.user._id); // cookies are not works 
 
@@ -551,7 +540,19 @@ const resetPassword = async (req, res) => {
 
     }
 
-    const hashedPassword = await bcrypt.hash(password, 6);
+    if(!bcrypt.compare(password,user.password)){
+
+      return res.status(404).json({
+
+        message:"password mismatch",
+        data:null,
+        erorr:null,
+        
+      })
+
+    }
+
+    const hashedPassword = await bcrypt.hash(confirmPasswordValue, 6);
 
     user.password = hashedPassword;
 
