@@ -26,7 +26,6 @@ const signupUser = async (req, res) => {
 
         data: null,
         message: "Please provide all the required fields",
-        error: error.message,
 
       })
 
