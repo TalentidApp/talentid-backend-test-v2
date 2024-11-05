@@ -320,29 +320,20 @@ const searchUserInfo = async (req, res) => {
 
     }
 
-    // we check here the user which he going to search has submitted opt form or not 
-
-    const isUserHasSubmittedOptForm = await OptForm.findOne({
-
-      email: email,
-
-    })
 
     if (isUserHasSubmittedOptForm) {
 
       return res.status(400).json({
 
         message: "no user exists with this email",
-        erorr:"no user exists with this email",
+        erorr: "no user exists with this email",
         data: null,
-        
+
       });
 
     }
 
     // check person who want to serach other candidate has valid user id 
-
-
 
     const isUserFound = await User.findById(userId);
 
@@ -436,6 +427,14 @@ const searchUserInfo = async (req, res) => {
     console.log("profile data is ", profile);
 
     isUserFound.credits -= 1;
+
+    // we check here the user which he going to search has submitted opt form or not 
+
+    const isUserHasSubmittedOptForm = await OptForm.findOne({
+
+      email: email,
+
+    })
 
     isUserFound.searchHistory.push({
       email: email,
