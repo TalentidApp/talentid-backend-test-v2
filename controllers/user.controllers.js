@@ -91,7 +91,7 @@ const signupUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
 
-  console.log("Inside login controller");
+  // console.log("Inside login controller");
 
   try {
     const { email, password } = req.body;
@@ -108,7 +108,7 @@ const loginUser = async (req, res) => {
     // Find user by email and populate additional details
     const user = await User.findOne({ email }).populate('additionalDetails');
 
-    console.log("user is at login ", user);
+    // console.log("user is at login ", user);
 
     if (!user) {
       return res.status(400).json({ message: "Invalid email or password" });
@@ -144,7 +144,7 @@ const loginUser = async (req, res) => {
     // Generate external token
     try {
       const data = await axios.get(`${process.env.base_company_url}/generate_token/${email}`);
-      console.log("Generated external token: ", data.data.token);
+      // console.log("Generated external token: ", data.data.token);
       user.token = data.data.token;
     } catch (error) {
       return res.status(500).json({
@@ -174,7 +174,7 @@ const loginUser = async (req, res) => {
 
   } catch (error) {
     res.status(500).json({ message: error.message });
-    console.log("Error in loginUser:", error.message);
+    // console.log("Error in loginUser:", error.message);
   }
 };
 
@@ -185,14 +185,16 @@ const loginUser = async (req, res) => {
 // this can be used by admin and user both 
 
 
+// import AdditionalDetails from "../models/additionalDetails.model.js";
 
 const updateUserData = async (req, res) => {
+  console.log("Inside updateUserData");
 
   try {
-
+    // Destructure and provide default values
     const {
       adminUserId,
-      clientUserId,
+      userId,
       fullname = null,
       email = null,
       phone = null,
@@ -200,11 +202,18 @@ const updateUserData = async (req, res) => {
       role = null,
       isVerified = null,
       credits = null,
+      address = null,
+      gender = null,
+      dateOfBirth = null,
+      nationality = null,
+      maritalStatus = null,
+      bio = null
     } = req.body;
 
-    console.log("at backend ", adminUserId, clientUserId);
+    console.log("Request data:", adminUserId, userId, fullname, email, phone, company, role, isVerified, credits);
 
-    if (!clientUserId) {
+    // Validate that clientUserId is provided
+    if (!userId) {
       return res.status(400).json({
         message: "User ID is required",
         error: null,
@@ -212,75 +221,76 @@ const updateUserData = async (req, res) => {
       });
     }
 
-    // Check if the admin user exists 
+    // Fetch admin and client user records
+    const adminUser = await User.findById(adminUserId);
+    const clientUser = await User.findById(userId).populate('additionalDetails');;
 
-    const isAdminUserExists = await User.findById(adminUserId);
+    // Check if the client user exists
 
-    // check if the client user exits 
-
-    const isClientUserExists = await User.findById(clientUserId);
-
-    if (!isClientUserExists) {
-
+    if (!clientUser) {
       return res.status(404).json({
-        message: "client user id not found",
+        message: "Client user ID not found",
         error: null,
         data: null,
       });
-
     }
+
+    // Check if the admin user has the required role to make certain updates
 
     // Create an object to store the fields that need to be updated
     const updateFields = {};
 
-    if (fullname !== null) updateFields.fullname = fullname;
-    if (email !== null) updateFields.email = email;
+    // Fields that can be updated by both regular users and admin
+    if (fullname !== null){
+
+      updateFields.fullname = fullname;
+      updateFields.userImage = `https://api.dicebear.com/5.x/initials/svg?seed=${fullname}`
+
+    } 
+      
     if (phone !== null) updateFields.phone = phone;
-    if (company !== null) updateFields.company = company;
-    if (role !== null) updateFields.role = role;
-    if (isVerified !== null && isAdminUserExists.role == "Admin") {
+    if (address) clientUser.additionalDetails.address = address;
+    if (gender) clientUser.additionalDetails.gender = gender;
+    if (dateOfBirth) clientUser.additionalDetails.dateOfBirth = dateOfBirth;
+    if (nationality) clientUser.additionalDetails.nationality = nationality;
+    if (maritalStatus) clientUser.additionalDetails.maritalStatus = maritalStatus;
+    if (bio) clientUser.additionalDetails.bio = bio;
 
-
-      await sendMail(isClientUserExists.email, null, "User Verfication", "verify", isClientUserExists.fullname, null);
-
-      updateFields.isVerified = isVerified;
-
-    }
-
-
-    if (credits !== null && isAdminUserExists.role == "Admin") {
-
-      try {
-
-        await sendMail(isClientUserExists.email, null, "credit added to your account", "credits", isClientUserExists.fullname, isClientUserExists.credits + credits);
-
-      } catch (e) {
-
-        console.log(e.message);
-
-        return res.status(400).json({
-
-          message: "error while sending sending mail ",
-          data: null,
-          error: e.message,
-
-        })
+    // Admin-only fields
+    if (adminUser && adminUser.role === "Admin" ) {
+      if (email !== null) updateFields.email = email;
+      if (company !== null) updateFields.company = company;
+      if (role !== null) updateFields.role = role;
+      
+      if (credits !== null) {
+        updateFields.credits = clientUser.credits + Number(credits);
+        try {
+          await sendMail(clientUser.email, null, "Credits added to your account", "credits", clientUser.fullname, updateFields.credits);
+        } catch (error) {
+          console.error("Error sending credits email:", error.message);
+        }
       }
-
-
-      updateFields.credits = isClientUserExists.credits + Number(credits);
-
+      
+      if (isVerified !== null) {
+        updateFields.isVerified = isVerified;
+        try {
+          await sendMail(clientUser.email, null, "User Verification", "verify", clientUser.fullname, null);
+        } catch (error) {
+          console.error("Error sending verification email:", error.message);
+        }
+      }
     }
 
+    // Save changes to the nested additional details if any field was modified
+    
+    await clientUser.additionalDetails.save();
+    console.log("Updated fields:", updateFields);
 
-
-    console.log("updated fields ", updateFields);
-
-    // Update the user with the specified fields
-    const updatedUser = await User.findByIdAndUpdate(clientUserId, updateFields, {
+    // Update the client user with the specified fields
+    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
       new: true, // Return the updated document
       runValidators: true, // Ensure the updated data adheres to the schema
-    });
+    }).populate('additionalDetails');
 
     return res.status(200).json({
       message: "User updated successfully",
@@ -288,19 +298,15 @@ const updateUserData = async (req, res) => {
       data: updatedUser,
     });
 
-
-  } catch (e) {
+  } catch (error) {
+    console.error("Error in updateUserData:", error.message);
 
     return res.status(500).json({
-
-      message: "error updating user",
+      message: "Error updating user",
       data: null,
-      error: e.message,
-
-    })
-
+      error: error.message,
+    });
   }
-
 };
 
 
@@ -320,18 +326,6 @@ const searchUserInfo = async (req, res) => {
 
     }
 
-
-    if (isUserHasSubmittedOptForm) {
-
-      return res.status(400).json({
-
-        message: "no user exists with this email",
-        erorr: "no user exists with this email",
-        data: null,
-
-      });
-
-    }
 
     // check person who want to serach other candidate has valid user id 
 
@@ -436,30 +430,48 @@ const searchUserInfo = async (req, res) => {
 
     })
 
-    isUserFound.searchHistory.push({
-      email: email,
-      candidate_name: profile?.candidate_name,
-      org_name: profile?.org_name,
-      job_title: profile.job_title,  // Add appropriate value
-      start_time: new Date(),  // Add the actual start time
-      round_name: profile.round_name,  // Add appropriate value
-      recommended_status: profile.recommended_status,  // Add appropriate value
-      interview_status: profile.interview_status,  // Add appropriate value
-      timestamp: new Date(),
-    });
+    if (isUserHasSubmittedOptForm) {
 
-    // Save the updated authenticated user info
+      await isUserFound.save();
 
-    await isUserFound.save();
+      return res.status(400).json({
 
-    // Respond with success and the fetched user data
-    return res.status(200).json({
+        message: "no user exists with this email",
+        erorr: "no user exists with this email",
+        data: null,
 
-      message: "User data fetch was successful",
-      data: user,
-      error: null,
+      });
 
-    });
+
+    }else{
+
+      isUserFound.searchHistory.push({
+        email: email,
+        candidate_name: profile?.candidate_name,
+        org_name: profile?.org_name,
+        job_title: profile.job_title,  // Add appropriate value
+        start_time: new Date(),  // Add the actual start time
+        round_name: profile.round_name,  // Add appropriate value
+        recommended_status: profile.recommended_status,  // Add appropriate value
+        interview_status: profile.interview_status,  // Add appropriate value
+        timestamp: new Date(),
+      });
+  
+      // Save the updated authenticated user info
+  
+      await isUserFound.save();
+
+      // Respond with success and the fetched user data
+      return res.status(200).json({
+  
+        message: "User data fetch was successful",
+        data: user,
+        error: null,
+  
+      });
+
+
+    }
 
   } catch (error) {
 
