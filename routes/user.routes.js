@@ -13,11 +13,15 @@ import {
   updateUserData,
   // updateUserProfile, // i have to add
 } from "../controllers/user.controllers.js";
+
+
 import protectRoute from "../middlewares/protectRoute.middleware.js";
 import logSearch from "../middlewares/searchHistory.middleware.js";
 import { createContactUs,getAllContactUsForm,updateContactUsStatus } from "../controllers/contactUs.controller.js";
 
 import {updateAdditionalDetails} from "../controllers/additionalDetails.controller.js";
+
+import { createOptForm } from "../controllers/optform.controller.js";
 
 const router = express.Router();
 
@@ -49,7 +53,12 @@ router.delete("/deleteUserAccount",deleteUserAccount);
 
 router.post("/updateUserData",updateUserData);
 
-router.post("/updateAdditionalDetails",updateAdditionalDetails)
+router.post("/updateAdditionalDetails",updateAdditionalDetails);
+
+
+
+router.post("/optForm", createOptForm); // i have to add
+
 
 export default router;
 

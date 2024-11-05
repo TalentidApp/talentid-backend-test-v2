@@ -15,6 +15,8 @@ import axios from 'axios'; // Make sure to install axios if you haven't
 
 import AdditionalDetails from "../models/additionalDetails.model.js";
 
+import OptForm from "../models/opt.model.js";
+
 
 const signupUser = async (req, res) => {
   try {
@@ -318,7 +320,29 @@ const searchUserInfo = async (req, res) => {
 
     }
 
+    // we check here the user which he going to search has submitted opt form or not 
+
+    const isUserHasSubmittedOptForm = await OptForm.findOne({
+
+      email: email,
+
+    })
+
+    if (isUserHasSubmittedOptForm) {
+
+      return res.status(400).json({
+
+        message: "no user exists with this email",
+        erorr:"no user exists with this email",
+        data: null,
+        
+      });
+
+    }
+
     // check person who want to serach other candidate has valid user id 
+
+
 
     const isUserFound = await User.findById(userId);
 
@@ -380,7 +404,7 @@ const searchUserInfo = async (req, res) => {
 
     console.log("API response:", apiResponse.data);
 
-    if(apiResponse.status == 200 && apiResponse.success == false){ // that means user not found 
+    if (apiResponse.status == 200 && apiResponse.success == false) { // that means user not found 
 
       isUserFound.credits -= 1;
 
@@ -539,14 +563,14 @@ const resetPassword = async (req, res) => {
 
     }
 
-    if(!bcrypt.compare(password,user.password)){
+    if (!bcrypt.compare(password, user.password)) {
 
       return res.status(404).json({
 
-        message:"password mismatch",
-        data:null,
-        erorr:null,
-        
+        message: "password mismatch",
+        data: null,
+        erorr: null,
+
       })
 
     }
@@ -664,7 +688,7 @@ const forgotPassword = async (req, res) => {
 
     };
 
-    if(isTokenExpired(findUser.resetPasswordTokenExpires)){
+    if (isTokenExpired(findUser.resetPasswordTokenExpires)) {
 
       return res.status(404).json({
 
