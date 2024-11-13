@@ -25,7 +25,7 @@ app.use(cookieParser()); // to parse cookies in the req.cookies
 
 
 app.use(cors({
-  origin: '*', // Replace with your frontend URL
+  origin: 'http://localhost:3000', // Replace with your frontend URL
   credentials: true // Allow sending cookies with cross-origin requests
 }));
 
