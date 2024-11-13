@@ -36,8 +36,10 @@ export const createPaymentLink = async (req, res) => {
                 send_email: true,
             },
             order_meta: {
-                return_url: 'https://imaginify-git-main-adarshs-projects-f27ee43e.vercel.app/', // Your frontend payment response URL
-                notify_url: 'https://c8d3-14-139-238-134.ngrok-free.app/api/payments/cashfree-webhook', // Your backend webhook URL
+                return_url: 'https://talentid.app/', // Your frontend payment response URL
+                // notify_url: 'https://c8d3-14-139-238-134.ngrok-free.app/api/payments/cashfree-webhook', // Your backend webhook URL
+
+                notify_url:'https://talentid-node-backend.vercel.app/api/payments/cashfree-webhook'
             },
             link_amount: orderAmount,
             link_currency: "INR",
@@ -101,7 +103,7 @@ export async function initializePayemnt(req, res) {
     console.log("Request body: ", req.body);
 
     // Extracting the data from the correct nested structure
-    
+
     const { data } = req.body;
     const { payment_status } = data.payment;
 
