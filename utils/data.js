@@ -5,14 +5,16 @@ export const statusEnum = {
 };
 
 // Define enum for query options
-export const queryOptionsEnum = {
-    PRICING_QUERY: "Pricing Query",
-    PARTNERSHIP_INQUIRIES: "Partnership inquiries",
-    AFFILIATE_PROGRAM: "Affiliate program",
-    INTEGRATION_PARTNERSHIP: "Integration Partnership",
-    BOOK_A_DEMO: "Book a demo",
-    OTHERS: "Others",
-};
+// export const queryOptionsEnum = {
+//     PRICING_QUERY: "Pricing Query",
+//     PARTNERSHIP_INQUIRIES: "Partnership inquiries",
+//     AFFILIATE_PROGRAM: "Affiliate program",
+//     INTEGRATION_PARTNERSHIP: "Integration Partnership",
+//     BOOK_A_DEMO: "Book a demo",
+//     OTHERS: "Others",
+// };
+
+export const queryOptionsEnum = {"Pricing Query":"Pricing Query", "Partnership issues":"Partnership issues", "Affiliate program":"Affiliate program", "Integration partnership":"Integration partnership", "Book a demo":"Book a demo", "Others":"Others"}
 
 
 import { v4 as uuidv4 } from 'uuid';

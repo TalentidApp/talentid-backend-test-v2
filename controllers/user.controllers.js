@@ -17,6 +17,8 @@ import AdditionalDetails from "../models/additionalDetails.model.js";
 
 import OptForm from "../models/opt.model.js";
 
+import Counter from "../models/count.model.js";
+
 
 const signupUser = async (req, res) => {
   try {
@@ -258,12 +260,14 @@ const updateUserData = async (req, res) => {
 
     // Admin-only fields
     if (adminUser && adminUser.role === "Admin" ) {
+
+      console.log("admin user ke andar ")
       if (email !== null) updateFields.email = email;
       if (company !== null) updateFields.company = company;
       if (role !== null) updateFields.role = role;
       
       if (credits !== null) {
-        updateFields.credits = clientUser.credits + Number(credits);
+        updateFields.credits = Number(credits);
         try {
           await sendMail(clientUser.email, null, "Credits added to your account", "credits", clientUser.fullname, updateFields.credits);
         } catch (error) {
@@ -272,6 +276,8 @@ const updateUserData = async (req, res) => {
       }
       
       if (isVerified !== null) {
+
+        console.log("hellow ");
         updateFields.isVerified = isVerified;
         try {
           await sendMail(clientUser.email, null, "User Verification", "verify", clientUser.fullname, null);
@@ -368,6 +374,27 @@ const searchUserInfo = async (req, res) => {
     let apiResponse;
     try {
 
+      const existingCounter = await Counter.findOne({ endpoint: "https://org.screenit.io/v2/api/service/user_data" });
+
+      console.log(existingCounter);
+    
+      if (!existingCounter) {
+        console.log("Counter does not exist, creating a new one...");
+    
+        // Create and save a new counter for the endpoint
+        const newCounter = new Counter({
+          endpoint: "https://org.screenit.io/v2/api/service/user_data",
+          count: 1,
+        });
+        await newCounter.save();
+    
+      } else {
+        // If it exists, increment the count and save it
+        console.log("Counter exists, incrementing count...");
+        existingCounter.count += 1;
+        await existingCounter.save();
+      }
+
       apiResponse = await axios.post(
         'https://org.screenit.io/v2/api/service/user_data',
         {
@@ -389,7 +416,7 @@ const searchUserInfo = async (req, res) => {
 
     console.log("API response:", apiResponse.data);
 
-    if (apiResponse.status == 200 && apiResponse.success == false) { // that means user not found 
+    if (apiResponse?.status == 200 && apiResponse?.success == false) { // that means user not found 
 
       isUserFound.credits -= 1;
 
@@ -397,15 +424,15 @@ const searchUserInfo = async (req, res) => {
 
     const user = apiResponse.data;
 
-    console.log(apiResponse);
+    console.log("api res ka data",apiResponse.data);
 
-    if (!apiResponse.data.success) {
+    if (!apiResponse?.data?.success) {
 
       return res.status(404).json({
 
-        message: apiResponse.data.msg.name || apiResponse.data.msg,
+        message: apiResponse?.data?.msg?.name || apiResponse?.data?.msg,
 
-        error: apiResponse.data.msg.message,
+        error: apiResponse?.data?.msg?.message,
 
         data: null
 
@@ -413,12 +440,23 @@ const searchUserInfo = async (req, res) => {
 
     }
 
-    const profile = apiResponse.data.profile[0];
+    const profile = apiResponse?.data?.profile;
 
     // Decrement the authenticated user's credits and update the search history
 
 
     console.log("profile data is ", profile);
+
+    if(apiResponse?.data?.profile.length == 0){
+
+        return res.status(403).json({
+
+          message:"no user exists with the specified email",
+          data:null,
+          error: "no user exists with the specified email"
+
+        })
+    }
 
     isUserFound.credits -= 1;
 
@@ -447,7 +485,7 @@ const searchUserInfo = async (req, res) => {
 
       isUserFound.searchHistory.push({
         email: email,
-        candidate_name: profile?.candidate_name,
+        candidate_name: profile.candidate_name,
         org_name: profile?.org_name,
         job_title: profile.job_title,  // Add appropriate value
         start_time: new Date(),  // Add the actual start time
@@ -481,6 +519,35 @@ const searchUserInfo = async (req, res) => {
   }
 };
 
+
+const getAllApiCountValue = async(req,res)=>{
+
+  try{
+
+    const apiCounts = await Counter.find({});
+
+    return res.status(200).json({
+
+      message:"all api counts fetch successfully ",
+      data: apiCounts,
+      success:true,
+
+    })
+
+  }catch(error){
+
+    console.log("Error in getAllApiCountValue", error.message);
+
+    return res.status(500).json({
+
+      success:false,
+      message: "Error in getting API count value",
+      error: error.message,
+
+    })
+  }
+
+}
 
 
 const getUserHistoryData = async (req, res) => {
@@ -871,6 +938,6 @@ const deleteUserAccount = async (req, res) => {
 
 
 
-export { searchUserInfo, updateUserData, signupUser, loginUser, deleteUserAccount, getUserHistoryData, fetchAllusers, resetPassword, forgotPassword, forgotPasswordEmail, logout };
+export { searchUserInfo, updateUserData, signupUser,getAllApiCountValue, loginUser, deleteUserAccount, getUserHistoryData, fetchAllusers, resetPassword, forgotPassword, forgotPasswordEmail, logout };
 
 

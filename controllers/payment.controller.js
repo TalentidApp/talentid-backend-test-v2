@@ -101,6 +101,7 @@ export async function initializePayemnt(req, res) {
     console.log("Request body: ", req.body);
 
     // Extracting the data from the correct nested structure
+    
     const { data } = req.body;
     const { payment_status } = data.payment;
 

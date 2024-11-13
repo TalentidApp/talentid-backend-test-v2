@@ -68,7 +68,7 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["Admin", "User","recruitmentFirms","HRE","Recruiters"],
+      enum: ["Admin", "User","Corporate HR","HR Agency","Others"],
       required: true,
     },
     password: {

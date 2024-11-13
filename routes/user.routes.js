@@ -11,7 +11,7 @@ import {
   fetchAllusers,
   deleteUserAccount,
   updateUserData,
-  
+  getAllApiCountValue
   // updateUserProfile, // i have to add
 } from "../controllers/user.controllers.js";
 
@@ -59,6 +59,8 @@ router.post("/updateAdditionalDetails",updateAdditionalDetails);
 
 
 router.post("/optForm", createOptForm); // i have to add
+
+router.get("/getAllApiCountValue",getAllApiCountValue);
 
 
 export default router;

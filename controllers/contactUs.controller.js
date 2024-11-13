@@ -6,6 +6,8 @@ export const createContactUs = async (req, res) => {
   try {
     const { fullname, company, email, phone, queryOptions, message } = req.body;
 
+    console.log(fullname, company, email, phone, queryOptions, message)
+
     if (!fullname || !company || !email || !queryOptions || !message) {
       return res.status(400).json({ error: "All fields are required" });
     }
