@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 
 import { paymentStatusEnum } from "../utils/data.js";
+import { number } from "zod";
 
 const orderSchema = new mongoose.Schema({
   orderId: { type: String, required: true, unique: true },
@@ -12,6 +13,12 @@ const orderSchema = new mongoose.Schema({
     customer_id: { type: String, required: true },
   },
   orderAmount: { type: Number, required: true },
+  credits:{
+
+    type:Number,
+    required: true,
+    
+  },
   paymentStatus: {
     type: String,
     enum: Object.values(paymentStatusEnum), // Use the enum values for the enum field

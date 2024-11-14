@@ -9,6 +9,8 @@ import paymentRoute from "./routes/payment.route.js";
 
 import {startCronJob} from "./utils/cronJobs.js"
 
+import OrderRoutes from "./routes/order.route.js"
+
 dotenv.config();
 
 connectDB();
@@ -25,13 +27,15 @@ app.use(cookieParser()); // to parse cookies in the req.cookies
 
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Replace with your frontend URL
+  origin: '*', // Replace with your frontend URL
   credentials: true // Allow sending cookies with cross-origin requests
 }));
 
 app.use("/api/users", userRoutes);
 
 app.use("/api/payments", paymentRoute);
+
+app.use("/api/orders", OrderRoutes);
 
 app.listen(PORT, () => {
 

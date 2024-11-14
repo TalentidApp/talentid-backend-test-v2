@@ -243,13 +243,13 @@ const updateUserData = async (req, res) => {
     const updateFields = {};
 
     // Fields that can be updated by both regular users and admin
-    if (fullname !== null){
+    if (fullname !== null) {
 
       updateFields.fullname = fullname;
       updateFields.userImage = `https://api.dicebear.com/5.x/initials/svg?seed=${fullname}`
 
-    } 
-      
+    }
+
     if (phone !== null) updateFields.phone = phone;
     if (address) clientUser.additionalDetails.address = address;
     if (gender) clientUser.additionalDetails.gender = gender;
@@ -259,13 +259,13 @@ const updateUserData = async (req, res) => {
     if (bio) clientUser.additionalDetails.bio = bio;
 
     // Admin-only fields
-    if (adminUser && adminUser.role === "Admin" ) {
+    if (adminUser && adminUser.role === "Admin") {
 
       console.log("admin user ke andar ")
       if (email !== null) updateFields.email = email;
       if (company !== null) updateFields.company = company;
       if (role !== null) updateFields.role = role;
-      
+
       if (credits !== null) {
         updateFields.credits = Number(credits);
         try {
@@ -274,7 +274,7 @@ const updateUserData = async (req, res) => {
           console.error("Error sending credits email:", error.message);
         }
       }
-      
+
       if (isVerified !== null) {
 
         console.log("hellow ");
@@ -288,7 +288,7 @@ const updateUserData = async (req, res) => {
     }
 
     // Save changes to the nested additional details if any field was modified
-    
+
     await clientUser.additionalDetails.save();
     console.log("Updated fields:", updateFields);
 
@@ -377,17 +377,17 @@ const searchUserInfo = async (req, res) => {
       const existingCounter = await Counter.findOne({ endpoint: "https://org.screenit.io/v2/api/service/user_data" });
 
       console.log(existingCounter);
-    
+
       if (!existingCounter) {
         console.log("Counter does not exist, creating a new one...");
-    
+
         // Create and save a new counter for the endpoint
         const newCounter = new Counter({
           endpoint: "https://org.screenit.io/v2/api/service/user_data",
           count: 1,
         });
         await newCounter.save();
-    
+
       } else {
         // If it exists, increment the count and save it
         console.log("Counter exists, incrementing count...");
@@ -424,7 +424,7 @@ const searchUserInfo = async (req, res) => {
 
     const user = apiResponse.data;
 
-    console.log("api res ka data",apiResponse.data);
+    console.log("api res ka data", apiResponse.data);
 
     if (!apiResponse?.data?.success) {
 
@@ -447,15 +447,15 @@ const searchUserInfo = async (req, res) => {
 
     console.log("profile data is ", profile);
 
-    if(apiResponse?.data?.profile.length == 0){
+    if (apiResponse?.data?.profile.length == 0) {
 
-        return res.status(403).json({
+      return res.status(403).json({
 
-          message:"no user exists with the specified email",
-          data:null,
-          error: "no user exists with the specified email"
+        message: "no user exists with the specified email",
+        data: null,
+        error: "no user exists with the specified email"
 
-        })
+      })
     }
 
     isUserFound.credits -= 1;
@@ -481,31 +481,46 @@ const searchUserInfo = async (req, res) => {
       });
 
 
-    }else{
+    } else {
+
+      console.log("actual profile data ",profile);
 
       isUserFound.searchHistory.push({
-        email: email,
-        candidate_name: profile.candidate_name,
-        org_name: profile?.org_name,
+
+        email:email,
+        candidate_name:profile[0].candidate_name,
+        org_name: profile.org_name,
         job_title: profile.job_title,  // Add appropriate value
         start_time: new Date(),  // Add the actual start time
         round_name: profile.round_name,  // Add appropriate value
         recommended_status: profile.recommended_status,  // Add appropriate value
+
         interview_status: profile.interview_status,  // Add appropriate value
-        timestamp: new Date(),
+        timestamp: new Date(),  // Add the actual start time
+
       });
-  
+
+      // email: email,
+      // candidate_name: profile.candidate_name,
+      // org_name: profile.org_name,
+      // job_title: profile.job_title,  // Add appropriate value
+      // start_time: new Date(),  // Add the actual start time
+      // round_name: profile.round_name,  // Add appropriate value
+      // recommended_status: profile.recommended_status,  // Add appropriate value
+      // interview_status: profile.interview_status,  // Add appropriate value
+      // timestamp: new Date(),
+
       // Save the updated authenticated user info
-  
+
       await isUserFound.save();
 
       // Respond with success and the fetched user data
       return res.status(200).json({
-  
+
         message: "User data fetch was successful",
         data: user,
         error: null,
-  
+
       });
 
 
@@ -520,27 +535,28 @@ const searchUserInfo = async (req, res) => {
 };
 
 
-const getAllApiCountValue = async(req,res)=>{
 
-  try{
+const getAllApiCountValue = async (req, res) => {
+
+  try {
 
     const apiCounts = await Counter.find({});
 
     return res.status(200).json({
 
-      message:"all api counts fetch successfully ",
+      message: "all api counts fetch successfully ",
       data: apiCounts,
-      success:true,
+      success: true,
 
     })
 
-  }catch(error){
+  } catch (error) {
 
     console.log("Error in getAllApiCountValue", error.message);
 
     return res.status(500).json({
 
-      success:false,
+      success: false,
       message: "Error in getting API count value",
       error: error.message,
 
@@ -571,7 +587,8 @@ const getUserHistoryData = async (req, res) => {
 
     // Fetch the user's history data from the database
 
-    const userData = await User.findById(userId).sort({ createdAt: -1 }); // -1 for descending order
+
+    const userData = await User.findById(userId);
 
     // Check if user history data exists
     if (!userData.searchHistory || userData.searchHistory.length === 0) {
@@ -581,8 +598,12 @@ const getUserHistoryData = async (req, res) => {
         message: "No history found for this user",
         error: null,
       });
-    }
 
+
+    }
+      // Sort the history array by createdAt in descending order
+     userData.searchHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  
 
     console.log("user history at login", userData.searchHistory);
 
@@ -680,6 +701,46 @@ const resetPassword = async (req, res) => {
 
 }
 
+
+const getUserCredits = async (req, res) => {
+
+  try {
+
+    const { userId } = req.params;
+
+    if (!userId) {
+
+      return res.status(400).json(({
+
+
+        message: "all field are required ",
+        error: null,
+        data: null,
+
+      }))
+
+    }
+
+    const userCredits = await User.findById(userId).select('credits');
+
+    return res.status(200).json({
+
+      message: "user credits get success",
+      data: userCredits,
+      success: true,
+    })
+
+  } catch (error) {
+
+    console.log(error);
+
+    return res.status(500).json({
+
+      message: "get error while update the credits  "
+    })
+
+  }
+}
 
 
 
@@ -938,6 +999,11 @@ const deleteUserAccount = async (req, res) => {
 
 
 
-export { searchUserInfo, updateUserData, signupUser,getAllApiCountValue, loginUser, deleteUserAccount, getUserHistoryData, fetchAllusers, resetPassword, forgotPassword, forgotPasswordEmail, logout };
+export {
+  searchUserInfo, updateUserData, getUserCredits, signupUser,
+  getAllApiCountValue, loginUser, deleteUserAccount, getUserHistoryData
+  , fetchAllusers, resetPassword, forgotPassword, forgotPasswordEmail,
+  logout
+};
 
 

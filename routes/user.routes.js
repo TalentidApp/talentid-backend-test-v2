@@ -16,6 +16,8 @@ import {
 } from "../controllers/user.controllers.js";
 
 
+import { getUserCredits } from "../controllers/user.controllers.js";
+
 import protectRoute from "../middlewares/protectRoute.middleware.js";
 import logSearch from "../middlewares/searchHistory.middleware.js";
 import { createContactUs,getAllContactUsForm,updateContactUsStatus } from "../controllers/contactUs.controller.js";
@@ -61,6 +63,8 @@ router.post("/updateAdditionalDetails",updateAdditionalDetails);
 router.post("/optForm", createOptForm); // i have to add
 
 router.get("/getAllApiCountValue",getAllApiCountValue);
+
+router.get("/getUserCredits/:userId",getUserCredits);
 
 
 export default router;
