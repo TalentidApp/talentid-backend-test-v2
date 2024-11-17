@@ -12,10 +12,15 @@ import { generateResetPasswordToken } from "./data.js";
 import nodemailer from "nodemailer";
 import User from "../models/user.model.js";
 
-export async function sendMail(email, userId=null,subject,emailType,fullname,credits=null) {
+import { emailVerificationTemplate } from "./emailVerificationTemplate.js";
+
+
+export async function sendMail(email, userId = null, subject, emailType, fullname, credits = null) {
     try {
 
         // console.log("email type is ", email, userId=null, subject, emailType, fullname,credits=null);
+
+        console.log(email, userId, subject, emailType, fullname, credits)
 
         console.log(process.env.mail_user, process.env.mail_pass);
 
@@ -31,24 +36,40 @@ export async function sendMail(email, userId=null,subject,emailType,fullname,cre
 
         // Define the email content based on emailType
         let htmlContent;
+        let token;
+        let tokenExpires;
+        let tokenData;
+        let findUser;
 
         switch (emailType) {
 
+            case "verifyEmail":
+
+                console.log("verify email ke andar ")
+
+                findUser = await User.findById(userId);
+                let tokenData = generateResetPasswordToken();
+                findUser.token = tokenData.token;
+                findUser.save();
+                htmlContent = emailVerificationTemplate(fullname,`${process.env.frontend_url}/verify-email/${tokenData.token}`); // Use reset password template
+                break;
             case "verify":
                 htmlContent = userVerificationTemplate(fullname); // Use verification template
                 break;
             case "resetPassword":
 
-                let findUser = await User.findById(userId);
+                findUser = await User.findById(userId);
 
-                const {token,tokenExpires} = generateResetPasswordToken();
+                tokenData = generateResetPasswordToken();
+                token = tokenData.token;
+                tokenExpires = tokenData.tokenExpires;
                 findUser.resetPasswordToken = token;
                 findUser.resetPasswordTokenExpires = tokenExpires;
                 findUser.save();
                 htmlContent = resetPasswordTemplate(userId); // Use reset password template
                 break;
             case "credits":
-                htmlContent = creditUpdateTemplate(fullname,credits);
+                htmlContent = creditUpdateTemplate(fullname, credits);
                 break;
             default:
                 throw new Error("Invalid email type");

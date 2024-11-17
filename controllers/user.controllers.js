@@ -19,6 +19,10 @@ import OptForm from "../models/opt.model.js";
 
 import Counter from "../models/count.model.js";
 
+import Candidate from "../models/candidate.model.js";
+
+import { emailType, getDateDifference } from "../utils/data.js";
+
 
 const signupUser = async (req, res) => {
   try {
@@ -69,6 +73,25 @@ const signupUser = async (req, res) => {
 
     await newUser.save();
 
+    // now we are going to verfify user Email
+
+    try {
+
+      await sendMail(email, newUser._id, "Eamil Verification", "verifyEmail", newUser.fullname);
+
+    } catch (error) {
+
+      return res.status(400).json({
+
+        success: false,
+        data: newUser,
+        message: "some error occured while send mail ",
+        error: null,
+
+      })
+    }
+
+
     return res.status(200).json({
 
       success: true,
@@ -86,6 +109,64 @@ const signupUser = async (req, res) => {
   }
 };
 
+
+
+const verifyUserEmail = async (req, res) => {
+
+  try {
+
+    console.log("verify user email ke andar ")
+
+    const { token } = req.params;
+
+    if (!token) {
+
+      return res.status(400).json({
+        data: null,
+        message: "Token not found",
+        error: null,
+
+      })
+
+    }
+
+    let newToken = token.split(" ")[0];
+
+    console.log("new token ",newToken);
+
+    const findUser = await User.findOne({ token: newToken });
+
+    console.log("find user is ",findUser);
+
+    if (findUser) {
+
+      findUser.isEmailVerified = true;
+      findUser.token ="";
+      await findUser.save();
+
+      return res.status(200).json({
+
+        success: true,
+        data: null,
+        message: "User email verified successfully",
+        error: null,
+      })
+    }
+
+    return res.status(400).json({
+
+      success: false,
+      data: null,
+      message: "token is not valid or token is expired ",
+      error: null,
+    })
+
+  } catch (error) {
+
+    res.status(500).json({ message: error.message });
+
+  }
+}
 
 // JWT secret and expiration (add this to your .env file)
 
@@ -372,91 +453,93 @@ const searchUserInfo = async (req, res) => {
 
     // Make an external API call to fetch the user data by email
     let apiResponse;
-    try {
+    // try {
 
-      const existingCounter = await Counter.findOne({ endpoint: "https://org.screenit.io/v2/api/service/user_data" });
+    //   const existingCounter = await Counter.findOne({ endpoint: `${process.env.base_company_url}/user_data` });
 
-      console.log(existingCounter);
+    //   console.log(existingCounter);
 
-      if (!existingCounter) {
-        console.log("Counter does not exist, creating a new one...");
+    //   if (!existingCounter) {
+    //     console.log("Counter does not exist, creating a new one...");
 
-        // Create and save a new counter for the endpoint
-        const newCounter = new Counter({
-          endpoint: "https://org.screenit.io/v2/api/service/user_data",
-          count: 1,
-        });
-        await newCounter.save();
+    //     // Create and save a new counter for the endpoint
+    //     const newCounter = new Counter({
+    //       endpoint: `${process.env.base_company_url}/user_data`,
+    //       count: 1,
+    //     });
+    //     await newCounter.save();
 
-      } else {
-        // If it exists, increment the count and save it
-        console.log("Counter exists, incrementing count...");
-        existingCounter.count += 1;
-        await existingCounter.save();
-      }
+    //   } else {
+    //     // If it exists, increment the count and save it
+    //     console.log("Counter exists, incrementing count...");
+    //     existingCounter.count += 1;
+    //     await existingCounter.save();
+    //   }
 
-      apiResponse = await axios.post(
-        'https://org.screenit.io/v2/api/service/user_data',
-        {
-          user_email: process.env.secretEmail, // Authenticated user email
-          candidate_email: email, // Searched user email
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${authenticatedUser.token}`,
+    //   // apiResponse = await axios.post(
+    //   //   `${process.env.base_company_url}/user_data`,
+    //   //   {
+    //   //     user_email: process.env.secretEmail, // Authenticated user email
+    //   //     candidate_email: email, // Searched user email
+    //   //   },
+    //   //   {
+    //   //     headers: {
+    //   //       Authorization: `Bearer ${authenticatedUser.token}`,
 
-          }
-        }
-      );
+    //   //     }
+    //   //   }
+    //   // );
 
-    } catch (error) {
-      console.log("error hai bhai ", error);
-      return res.status(500).json({ message: "Error fetching user data from external API" });
-    }
+    apiResponse = await axios.get(`https://dummy-backend-five.vercel.app/getCandidateData/${email}`);
 
-    console.log("API response:", apiResponse.data);
 
-    if (apiResponse?.status == 200 && apiResponse?.success == false) { // that means user not found 
+    // } catch (error) {
+    //   console.log("error hai bhai ", error);
+    //   return res.status(500).json({ message: "Error fetching user data from external API" });
+    // }
 
-      isUserFound.credits -= 1;
+    console.log("API response:", apiResponse?.data?.data);
 
-    }
+    // if (apiResponse?.status == 200 && apiResponse?.success == false) { // that means user not found 
 
-    const user = apiResponse.data;
+    //   isUserFound.credits -= 1;
 
-    console.log("api res ka data", apiResponse.data);
+    // }
 
-    if (!apiResponse?.data?.success) {
+    const user = apiResponse?.data?.data;
 
-      return res.status(404).json({
 
-        message: apiResponse?.data?.msg?.name || apiResponse?.data?.msg,
+    // if (!apiResponse?.data?.success) {
 
-        error: apiResponse?.data?.msg?.message,
+    //   return res.status(404).json({
 
-        data: null
+    //     message: apiResponse?.data?.msg?.name || apiResponse?.data?.msg,
 
-      });
+    //     error: apiResponse?.data?.msg?.message,
 
-    }
+    //     data: null
 
-    const profile = apiResponse?.data?.profile;
+    //   });
+
+    // }
+
+    const profile = apiResponse?.data?.data;
 
     // Decrement the authenticated user's credits and update the search history
 
 
     console.log("profile data is ", profile);
 
-    if (apiResponse?.data?.profile.length == 0) {
+    // if (apiResponse?.data?.profile.length == 0) {
 
-      return res.status(403).json({
+    //   return res.status(403).json({
 
-        message: "no user exists with the specified email",
-        data: null,
-        error: "no user exists with the specified email"
+    //     message: "no user exists with the specified email",
+    //     data: null,
+    //     error: "no user exists with the specified email"
 
-      })
-    }
+    //   })
+    // }
 
     isUserFound.credits -= 1;
 
@@ -483,42 +566,116 @@ const searchUserInfo = async (req, res) => {
 
     } else {
 
-      console.log("actual profile data ",profile);
+      // console.log("actual profile data ",profile);
 
-      isUserFound.searchHistory.push({
 
-        email:email,
-        candidate_name:profile[0].candidate_name,
-        org_name: profile.org_name,
-        job_title: profile.job_title,  // Add appropriate value
-        start_time: new Date(),  // Add the actual start time
-        round_name: profile.round_name,  // Add appropriate value
-        recommended_status: profile.recommended_status,  // Add appropriate value
+      // isUserFound.searchHistory.push({
 
-        interview_status: profile.interview_status,  // Add appropriate value
-        timestamp: new Date(),  // Add the actual start time
+      //   email:email,
+      //   candidate_name:profile[0].candidate_name,
+      //   org_name: profile.org_name,
+      //   job_title: profile.job_title,  // Add appropriate value
+      //   start_time: new Date(),  // Add the actual start time
+      //   round_name: profile.round_name,  // Add appropriate value
+      //   recommended_status: profile.recommended_status,  // Add appropriate value
+
+      //   interview_status: profile.interview_status,  // Add appropriate value
+      //   timestamp: new Date(),  // Add the actual start time
+
+      // });
+
+      //first we create a new candidate 
+
+      // const actualData = {
+      //   "email": "lavanyamrinalini@gmail.com",
+      //   "appliedCompanies": [
+      //     {
+      //       "companyName": "Company XYZ",
+      //       "applicantName": "John Doe",
+      //       "jobTitle": "Software Engineer",
+      //       "appliedAt": "2024-11-01",
+      //       "applicationStatus": "Pending",
+      //       "rounds": [
+      //         {
+      //           "roundName": "Technical Interview",
+      //           "date": "2024-11-05",
+      //           "status": "Completed",
+      //           "feedback": "Great technical skills"
+      //         }
+      //       ],
+      //       "currentRound": "HR Interview",
+      //       "currentStatus": "Pending"
+      //     },
+      //     {
+      //       "companyName": "ddd XYZ",
+      //       "applicantName": "John Doe",
+      //       "jobTitle": "Software Engineer",
+      //       "appliedAt": "2024-11-01",
+      //       "applicationStatus": "Pending",
+      //       "rounds": [
+      //         {
+      //           "roundName": "Screening Interview",
+      //           "date": "2024-11-05",
+      //           "status": "Selected",
+      //           "feedback": "Great technical skills"
+
+      //         },
+      //         {
+      //           "roundName": "Technical Interview",
+      //           "date": "2024-11-05",
+      //           "status": "Selected",
+      //           "feedback": "Great technical skills"
+      //         },
+      //         {
+
+      //           "roundName": "HR Interview",
+      //           "date": "2024-11-05",
+      //           "status": "Pending",
+      //           "feedback": "Great technical skills"
+
+      //         }
+      //       ],
+      //       "currentRound": "HR Interview",
+      //       "currentStatus": "Pending"
+      //     }
+      //   ]
+      // }
+
+      console.log("profile is ", profile);
+
+      let filteredAppliedCompanies = profile.appliedCompanies.filter((company) => {
+
+        if (getDateDifference(company.appliedAt)) {
+
+          return company;
+
+        }
 
       });
 
-      // email: email,
-      // candidate_name: profile.candidate_name,
-      // org_name: profile.org_name,
-      // job_title: profile.job_title,  // Add appropriate value
-      // start_time: new Date(),  // Add the actual start time
-      // round_name: profile.round_name,  // Add appropriate value
-      // recommended_status: profile.recommended_status,  // Add appropriate value
-      // interview_status: profile.interview_status,  // Add appropriate value
-      // timestamp: new Date(),
 
-      // Save the updated authenticated user info
+      const candidate = await Candidate.create({
+        email: email,
+        appliedCompanies: filteredAppliedCompanies
+      });
 
+
+      // await Candidate.save();
+
+      isUserFound.searchHistory.push({
+
+        _id: candidate._id,
+
+      })
+
+      // Save the updated isUserFound document
       await isUserFound.save();
 
       // Respond with success and the fetched user data
       return res.status(200).json({
 
         message: "User data fetch was successful",
-        data: user,
+        data: filteredAppliedCompanies,
         error: null,
 
       });
@@ -533,6 +690,9 @@ const searchUserInfo = async (req, res) => {
 
   }
 };
+
+
+
 
 
 
@@ -588,7 +748,7 @@ const getUserHistoryData = async (req, res) => {
     // Fetch the user's history data from the database
 
 
-    const userData = await User.findById(userId);
+    const userData = await User.findById(userId).populate("searchHistory");
 
     // Check if user history data exists
     if (!userData.searchHistory || userData.searchHistory.length === 0) {
@@ -601,9 +761,9 @@ const getUserHistoryData = async (req, res) => {
 
 
     }
-      // Sort the history array by createdAt in descending order
-     userData.searchHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-  
+    // Sort the history array by createdAt in descending order
+    userData.searchHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
 
     console.log("user history at login", userData.searchHistory);
 
@@ -1000,6 +1160,7 @@ const deleteUserAccount = async (req, res) => {
 
 
 export {
+  verifyUserEmail,
   searchUserInfo, updateUserData, getUserCredits, signupUser,
   getAllApiCountValue, loginUser, deleteUserAccount, getUserHistoryData
   , fetchAllusers, resetPassword, forgotPassword, forgotPasswordEmail,

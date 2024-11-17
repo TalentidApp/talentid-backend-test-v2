@@ -11,11 +11,13 @@ import {
   fetchAllusers,
   deleteUserAccount,
   updateUserData,
-  getAllApiCountValue
+  getAllApiCountValue,
   // updateUserProfile, // i have to add
 } from "../controllers/user.controllers.js";
 
+import { verifyUserEmail } from "../controllers/user.controllers.js";
 
+import { createOptForm } from "../controllers/optform.controller.js";
 import { getUserCredits } from "../controllers/user.controllers.js";
 
 import protectRoute from "../middlewares/protectRoute.middleware.js";
@@ -24,7 +26,6 @@ import { createContactUs,getAllContactUsForm,updateContactUsStatus } from "../co
 
 import {updateAdditionalDetails} from "../controllers/additionalDetails.controller.js";
 
-import { createOptForm } from "../controllers/optform.controller.js";
 
 const router = express.Router();
 
@@ -65,6 +66,8 @@ router.post("/optForm", createOptForm); // i have to add
 router.get("/getAllApiCountValue",getAllApiCountValue);
 
 router.get("/getUserCredits/:userId",getUserCredits);
+
+router.get("/verifyUserEmail/:token",verifyUserEmail);
 
 
 export default router;

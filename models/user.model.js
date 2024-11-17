@@ -2,51 +2,53 @@ import mongoose, { Mongoose } from "mongoose";
 
 import AdditionalDetails from "./additionalDetails.model.js";
 
-const searchHistorySchema = new mongoose.Schema({
-  candidate_name: {
-    type: String,
-    // required: true,
-  },
-  email:{
+import Candidate from "./candidate.model.js";
 
-    type: String,
+// const searchHistorySchema = new mongoose.Schema({
+//   candidate_name: {
+//     type: String,
+//     // required: true,
+//   },
+//   email:{
+
+//     type: String,
     
-  },
-  org_name: {
-    type: String,
-    // required: true,
-  },
-  job_title: {
-    type: String,
-    // required: true,
-  },
-  start_time: {
-    type: Date,
-    // required: true,
-  },
-  round_name: {
-    type: String,
-    // required: true,
-  },
-  recommended_status: {
-    type: String,
-    // required: true,
-  },
-  proxy: {
-    type: Boolean,
-    // required: true,
-  },
-  interview_status: {
-    type: String,
-    // required: true,
-  },
-},
-  { timestamps: true }
+//   },
+//   org_name: {
+//     type: String,
+//     // required: true,
+//   },
+//   job_title: {
+//     type: String,
+//     // required: true,
+//   },
+//   start_time: {
+//     type: Date,
+//     // required: true,
+//   },
+//   round_name: {
+//     type: String,
+//     // required: true,
+//   },
+//   recommended_status: {
+//     type: String,
+//     // required: true,
+//   },
+//   proxy: {
+//     type: Boolean,
+//     // required: true,
+//   },
+//   interview_status: {
+//     type: String,
+//     // required: true,
+//   },
+// },
+//   { timestamps: true }
 
-);
+// );
 
 
-const SearchedHistorySchema = mongoose.model("SearchedHistorySchema", searchHistorySchema);
+// const SearchedHistorySchema = mongoose.model("SearchedHistorySchema", searchHistorySchema);
 
 
 const userSchema = new mongoose.Schema(
@@ -82,6 +84,7 @@ const userSchema = new mongoose.Schema(
       ref: "AdditionalDetails",
 
     },
+    isEmailVerified: { type: Boolean, default: false },
     isVerified:{
 
       type: Boolean,
@@ -113,7 +116,13 @@ const userSchema = new mongoose.Schema(
       default: () => new Date(Date.now() + 5 * 60 * 1000), // 5 minutes from now
     },
 
-    searchHistory: [searchHistorySchema],
+    searchHistory:[
+      {
+
+        type:mongoose.Schema.Types.ObjectId,
+        ref: "Candidate",
+      }
+    ],
   },
   { timestamps: true }
 );

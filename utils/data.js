@@ -49,3 +49,25 @@ export function generateResetPasswordToken() {
     return { token, tokenExpires };
 }
 
+
+export function getDateDifference(inputDate) {
+    const currentDate = new Date(); // Current date
+    const givenDate = new Date(inputDate); // Convert input to Date object
+  
+    // Calculate the difference in milliseconds
+    const differenceInMilliseconds = currentDate - givenDate;
+  
+    // Convert milliseconds to days
+    const differenceInDays = Math.floor(differenceInMilliseconds / (1000 * 60 * 60 * 24));
+
+    if(differenceInDays >90){
+
+        return false;
+    }
+  
+    return true;
+  }
+  
+  
+
+
