@@ -1,6 +1,4 @@
-
-export function emailVerificationTemplate(name,frontendUrl){
-
+export function emailVerificationTemplate(name, frontendUrl) {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -85,25 +83,24 @@ export function emailVerificationTemplate(name,frontendUrl){
   <div class="email-container">
     <!-- Header -->
     <div class="email-header">
-      <img src="./utils/assests/image.png"/>
-      <span> World's First candidate Tracking System</span>
+      <img src="https://asset.cloudinary.com/dfz0wkqij/61ad374ff61fc20f604973d183f1cb5e" alt="Talent ID Logo" style="max-width: 150px; height: auto; margin-bottom: 10px;">
+      <span>World's First Candidate Tracking System</span>
     </div>
     <!-- Body -->
     <div class="email-body">
       <h2>Verify Your Email Address</h2>
       <p>Hi ${name},</p>
-      <p>Thank you for signing up with TalentId! Please verify your email to activate your account and start exploring platform.</p>
-      <a href="${frontendUrl} class="verification-link">Verify Email</a>
+      <p>Thank you for signing up with Talent ID! Please verify your email to activate your account and start exploring our platform.</p>
+      <a href="${frontendUrl}" class="verification-link">Verify Email</a>
       <p>If you didn't create an account, you can safely ignore this email.</p>
     </div>
     <!-- Footer -->
     <div class="email-footer">
-      <p>&copy; 2024 TalentId. All rights reserved.</p>
+      <p>&copy; 2024 Talent ID. All rights reserved.</p>
       <p><a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a></p>
     </div>
   </div>
 </body>
 </html>
-
-`
+`;
 }

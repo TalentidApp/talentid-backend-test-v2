@@ -6,6 +6,8 @@ import nodemailer from "nodemailer";
 import User from "../models/user.model.js";
 import { emailVerificationTemplate } from "./emailVerificationTemplate.js";
 
+// import image from "../assests/image.png"
+
 export async function sendMail(email, userId = null, subject, emailType, fullname, credits = null) {
     try {
         // Debugging info
