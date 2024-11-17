@@ -100,7 +100,7 @@ export function resetPasswordTemplate(userId) {
                 <h2>Hi there,</h2>
                 <p>We received a request to reset your Talent ID account password. Click the button below to reset your password:</p>
                 <div class="button-container">
-                    <a href="${process.env.frontend_url}/auth/forgot-password/${userId}" class="button">Reset Password</a>
+                    <a href="https://test-cts.talentid.app/auth/forgot-password/${userId}" class="button">Reset Password</a>
                 </div>
                 <p>If you didn't request a password reset, please ignore this email.</p>
             </div>
