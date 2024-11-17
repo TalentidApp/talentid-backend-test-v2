@@ -66,7 +66,7 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
                 findUser.resetPasswordTokenExpires = tokenExpires;
                 await findUser.save();
 
-                htmlContent = resetPasswordTemplate(`${process.env.frontend_url}/reset-password/${token}`);
+                htmlContent = resetPasswordTemplate(userId); // Use reset password template
                 break;
 
             case "credits":
