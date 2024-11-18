@@ -26,22 +26,26 @@ app.use(express.urlencoded({ extended: true })); // to parse form data in the re
 app.use(cookieParser()); // to parse cookies in the req.cookies
 
 
-const allowedOrigins = [
-  'https://cts.talentid.app',
-  'https://talentid.app'
-];
+// const allowedOrigins = [
+//   'https://cts.talentid.app',
+//   'https://talentid.app'
+// ];
+
+// app.use(cors({
+//   origin: (origin, callback) => {
+//     if (!origin || allowedOrigins.includes(origin)) {
+//       callback(null, true); // Allow request
+//     } else {
+//       callback(new Error('Not allowed by CORS')); // Reject request
+//     }
+//   },
+//   credentials: true // Allow cookies with cross-origin requests
+// }));
 
 app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true); // Allow request
-    } else {
-      callback(new Error('Not allowed by CORS')); // Reject request
-    }
-  },
-  credentials: true // Allow cookies with cross-origin requests
+  origin: '*', // Replace with your frontend URL
+  credentials: true // Allow sending cookies with cross-origin requests
 }));
-
 
 app.use("/api/users", userRoutes);
 
