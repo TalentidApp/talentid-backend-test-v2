@@ -26,7 +26,7 @@ export const createPaymentLink = async (req, res) => {
         console.log("create payment link data ",credits);
 
         // Step 1: Call Cashfree API to create the payment link
-        const response = await axios.post('https://sandbox.cashfree.com/pg/links', {
+        const response = await axios.post(`${process.env.CASHFREE_API}`, {
             customer_details: {
                 customer_name: customerDetails.customer_name,
                 customer_email: customerDetails.customer_email,
@@ -38,10 +38,8 @@ export const createPaymentLink = async (req, res) => {
                 send_email: true,
             },
             order_meta: {
-                return_url: 'https://talentid.app/', // Your frontend payment response URL
-                // notify_url: 'https://c8d3-14-139-238-134.ngrok-free.app/api/payments/cashfree-webhook', // Your backend webhook URL
-                notify_url: 'https://320c-103-183-227-183.ngrok-free.app/api/payments/cashfree-webhook'
-                // notify_url:'https://talentid-node-backend.vercel.app/api/payments/cashfree-webhook'
+                // return_url: 'https://talentid.app/', // Your frontend payment response URL
+                notify_url: `${process.env.backend_url}/api/payments/cashfree-webhook`  // backend payment response URL
             },
             link_amount: orderAmount,
             link_currency: "INR",
@@ -147,7 +145,7 @@ export async function initializePayemnt(req, res) {
 const fetchPaymentLinkDetails = async (linkId) => {
 
     try {
-        const response = await axios.get(`https://sandbox.cashfree.com/pg/links/${linkId}`, {
+        const response = await axios.get(`${process.env.CASHFREE_API}/${linkId}`, {
             headers: {
                 'accept': 'application/json',
                 'x-api-version': '2023-08-01',
@@ -194,13 +192,6 @@ export async function updateOrderDetails(customer_email, paymentStatus, res) {
             });
         }
 
-        // if (mostRecentOrder.paymentStatus === paymentStatusEnum.SUCCESS) {
-        //     return res.status(200).json({
-        //         message: "Order already marked as SUCCESS",
-        //         error: null,
-        //         data: { order: mostRecentOrder },
-        //     });
-        // }
 
         // Check if the current status is already SUCCESS before proceeding
         if (mostRecentOrder.paymentStatus === paymentStatusEnum.SUCCESS && paymentStatus === paymentStatusEnum.SUCCESS) {
