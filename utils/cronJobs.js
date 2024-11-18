@@ -39,30 +39,34 @@ const refreshAccessToken = async () => {
 
 
 // Schedule the cron job to run every 7 hours
-export const startCronJob = () => {
-    cron.schedule('0 * * * *', () => {
-        console.log('Running token refresh cron job...');
-        refreshAccessToken();
-    });
-};
-
-
-
 // export const startCronJob = () => {
-
-//     cron.schedule('* * * * *', async () => {
+//     cron.schedule('0 * * * *', () => {
 //         console.log('Running token refresh cron job...');
-    
-//         try {
-//             await refreshAccessToken();
-//             console.log('Token refreshed successfully.');
-//         } catch (error) {
-//             console.error('Error refreshing token:', error);
-//             // Consider adding retry logic or notifying relevant parties
-//         }
-    
+//         refreshAccessToken();
 //     });
+// };
 
 
-// }    
+
+
+
+
+
+export const startCronJob = () => {
+
+    cron.schedule('* * * * *', async () => {
+        console.log('Running token refresh cron job...');
+    
+        try {
+            await refreshAccessToken();
+            console.log('Token refreshed successfully.');
+        } catch (error) {
+            console.error('Error refreshing token:', error);
+            // Consider adding retry logic or notifying relevant parties
+        }
+    
+    });
+
+
+}    
 

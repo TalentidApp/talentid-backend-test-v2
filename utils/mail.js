@@ -1,10 +1,10 @@
-import { userVerificationTemplate } from "./userVerificationTemplate.js";
+import { userVerificationTemplate } from "./templates/userVerificationTemplate.js";
 import { randomStringGenerator, generateResetPasswordToken } from "./data.js";
-import { resetPasswordTemplate } from "./resetPasswordTemplate.js";
-import { creditUpdateTemplate } from "./creditTemplate.js";
+import { resetPasswordTemplate } from "./templates/resetPasswordTemplate.js";
+import { creditUpdateTemplate } from "./templates/creditTemplate.js";
 import nodemailer from "nodemailer";
 import User from "../models/user.model.js";
-import { emailVerificationTemplate } from "./emailVerificationTemplate.js";
+import { emailVerificationTemplate } from "./templates/emailVerificationTemplate.js";
 
 // import image from "../assests/image.png"
 
