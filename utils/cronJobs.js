@@ -48,10 +48,6 @@ const refreshAccessToken = async () => {
 
 
 
-
-
-
-
 export const startCronJob = () => {
 
     cron.schedule('* * * * *', async () => {

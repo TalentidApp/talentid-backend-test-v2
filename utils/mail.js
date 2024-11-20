@@ -56,6 +56,7 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
                 break;
 
             case "resetPassword":
+                console.log("frontens url",process.env.frontend_url);
                 console.log("Handling reset password email");
                 findUser = await User.findById(userId);
                 if (!findUser) throw new Error("User not found for password reset.");

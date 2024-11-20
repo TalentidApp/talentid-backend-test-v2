@@ -66,8 +66,17 @@ export function getDateDifference(inputDate) {
     }
   
     return true;
-  }
+}
   
   
+// /user_data`
+
+export const allCompaniesEndpoint = [
+
+    `${process.env.base_company_url}/user_data`,
+    // `${process.env.base_company_url}/generate_token`,
+    `${process.env.dummyBackendCompanyUrl}/email`,
+
+];
 
 

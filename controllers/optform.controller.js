@@ -1,6 +1,6 @@
 import OptForm from "../models/opt.model.js";
 
-export const createOptForm = async (req, res) => {
+const createOptForm = async (req, res) => {
     const { firstName, lastName, email, companyName } = req.body;
 
     try {
@@ -39,3 +39,10 @@ export const createOptForm = async (req, res) => {
         });
     }
 };
+
+
+export {
+
+    createOptForm
+};
+

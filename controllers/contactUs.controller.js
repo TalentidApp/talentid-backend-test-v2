@@ -2,6 +2,8 @@ import ContactUs from "../models/contactUs.model.js";
 
 import { sendMail } from "../utils/mail.js";
 
+
+
 export const createContactUs = async (req, res) => {
   try {
     const { fullname, company, email, phone, queryOptions, message } = req.body;

@@ -3,71 +3,52 @@ import dotenv from "dotenv";
 import cors from "cors";
 import connectDB from "./db/connectDB.js";
 import cookieParser from "cookie-parser";
-import userRoutes from "./routes/user.routes.js";
+import { startCronJob } from "./utils/cronJobs.js";
 
+// Routes
 import paymentRoute from "./routes/payment.route.js";
-
-import {startCronJob} from "./utils/cronJobs.js"
-
-import OrderRoutes from "./routes/order.route.js"
+import OrderRoutes from "./routes/order.route.js";
+import authRoutes from "./routes/auth.routes.js";
+import contactUsRoute from "./routes/contactUs.route.js";
+import optOutRoutes from "./routes/optout.route.js";
+import userRoutes from "./routes/user.routes.js";
 
 dotenv.config();
 
+// Connect to the database
 connectDB();
-const app = express();
 
+// Initialize Express app
+const app = express();
 const PORT = process.env.PORT || 5000;
 
-console.log("port is ",process.env.PORT);
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
+app.use(
+  cors({
+    origin: "*", // Replace with your frontend URL for security
+    credentials: true, // Allow cookies with cross-origin requests
+  })
+);
 
-
-app.use(express.json()); // parsing json data of req.body
-app.use(express.urlencoded({ extended: true })); // to parse form data in the req.body
-app.use(cookieParser()); // to parse cookies in the req.cookies
-
-
-// const allowedOrigins = [
-//   'https://cts.talentid.app',
-//   'https://talentid.app'
-// ];
-
-// app.use(cors({
-//   origin: (origin, callback) => {
-//     if (!origin || allowedOrigins.includes(origin)) {
-//       callback(null, true); // Allow request
-//     } else {
-//       callback(new Error('Not allowed by CORS')); // Reject request
-//     }
-//   },
-//   credentials: true // Allow cookies with cross-origin requests
-// }));
-
-app.use(cors({
-  origin: '*', // Replace with your frontend URL
-  credentials: true // Allow sending cookies with cross-origin requests
-}));
-
+// Routes
 app.use("/api/users", userRoutes);
-
 app.use("/api/payments", paymentRoute);
-
 app.use("/api/orders", OrderRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/contactus", contactUsRoute);
+app.use("/api/optout", optOutRoutes);
 
-app.listen(PORT, () => {
-
-  console.log(`Server started at http://localhost:${PORT}`);
-
+app.get("/", (req, res) => {
+  res.send("Welcome to Talent ID API");
 });
 
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server started at http://localhost:${PORT}`);
+});
 
-app.get("/",(req,res)=>{
-
-    res.send("Welcome to Talent ID API");
-    
-})
-
-// Schedule the cron job to run every 7 hours
-
-startCronJob();
-
+// startCronJob(); // Start the cron job after the server is running
 
