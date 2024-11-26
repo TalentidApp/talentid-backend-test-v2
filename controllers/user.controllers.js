@@ -170,7 +170,7 @@ const searchUserInfo = async (req, res) => {
     try{
 
        allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
-
+       isUserFound.credits -= 1;
 
     }catch(error){
 
@@ -198,7 +198,6 @@ const searchUserInfo = async (req, res) => {
 
     // Update search history for the user
     isUserFound.searchHistory.push({ _id: candidate._id });
-    isUserFound.credits -= 1;
     await isUserFound.save();
 
     // Respond with the fetched data
