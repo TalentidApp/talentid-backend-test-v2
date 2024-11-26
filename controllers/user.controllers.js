@@ -172,6 +172,8 @@ const searchUserInfo = async (req, res) => {
        allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
        isUserFound.credits -= 1;
 
+       await isUserFound.save();
+
     }catch(error){
 
       return res.status(500).json({
@@ -187,7 +189,9 @@ const searchUserInfo = async (req, res) => {
     // Filter outdated data
     const filteredAppliedCompanies = filterCandidateData(allAppliedCompaniesData);
     if (filteredAppliedCompanies.length === 0) {
+
       return res.status(404).json({ message: "No data found for this email" });
+      
     }
 
     // Save the candidate's data
