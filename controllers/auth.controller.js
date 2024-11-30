@@ -190,9 +190,19 @@ const loginUser = async (req, res) => {
         }
 
         // Check if the user is verified
+
+        if(!user.isEmailVerified){
+
+            return res.status(401).json({
+                message: "User is not verified by email",
+                error: null,
+                data: null,
+            });
+        }
+        
         if (!user.isVerified) {
             return res.status(401).json({
-                message: "User is not verified",
+                message: "User is not verified by admin",
                 error: null,
                 data: null,
             });

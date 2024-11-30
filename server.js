@@ -50,5 +50,5 @@ app.listen(PORT, () => {
   console.log(`Server started at http://localhost:${PORT}`);
 });
 
-// startCronJob(); // Start the cron job after the server is running
+startCronJob(); // Start the cron job after the server is running
 
