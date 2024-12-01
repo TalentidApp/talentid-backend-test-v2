@@ -50,19 +50,16 @@ const refreshAccessToken = async () => {
 
 export const startCronJob = () => {
 
-    cron.schedule('* * * * *', async () => {
+    cron.schedule('0 */4 * * *', async () => {
         console.log('Running token refresh cron job...');
-    
         try {
             await refreshAccessToken();
             console.log('Token refreshed successfully.');
         } catch (error) {
             console.error('Error refreshing token:', error);
-            // Consider adding retry logic or notifying relevant parties
         }
-    
     });
-
+    
 
 }    
 

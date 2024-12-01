@@ -42,6 +42,8 @@ const fetchAppliedCompaniesFromScreenit = async (email, token) => {
     }
   );
 
+  console.log("response ka data ",response.data);
+
   if (!response.data.success || !response.data.profile?.length) return [];
 
   // Process profile data
@@ -50,14 +52,14 @@ const fetchAppliedCompaniesFromScreenit = async (email, token) => {
     applicantName: data?.candidate_name,
     appliedAt: data?.start_time,
     jobTitle: data?.job_title,
-    applicationStatus: data?.recommended_status,
-    currentStatus: data?.interview_status,
+    applicationStatus: `${data?.recommended_status == "Hire"? "Selected":"Rejected"}`,
+    currentStatus: `${data?.interview_status == "Incomplete" ? "Pending" : "Selected"}`,
     currentRound: data?.round_name,
     rounds: [
       {
         roundName: data?.round_name,
         date: data?.start_time,
-        status: data?.interview_status,
+        status: `${data?.interview_status == "Incomplete" ? "Pending" : "Selected"}`,
       },
     ],
   }));
@@ -169,7 +171,12 @@ const searchUserInfo = async (req, res) => {
 
     try{
 
+      console.log("going to fetch the data ")
+
        allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
+
+       console.log("all comapnies fetched data ",allAppliedCompaniesData);
+
        isUserFound.credits -= 1;
 
        await isUserFound.save();
