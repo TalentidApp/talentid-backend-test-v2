@@ -28,8 +28,10 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(
   cors({
-    origin: "*", // Replace with your frontend URL for security
-    credentials: true, // Allow cookies with cross-origin requests
+
+    origin:"*",
+    credentials: true,
+    
   })
 );
 

@@ -76,41 +76,39 @@ const verifyUserEmail = async (req, res) => {
 // signup the user 
 
 const signupUser = async (req, res) => {
+    console.log("Inside signupUser");
+
     try {
         const { fullname, email, phone, company, role, password } = req.body;
 
+        // Check for missing fields
         if (!fullname || !email || !phone || !company || !role || !password) {
-
-            res.status(400).json({
-
+            return res.status(400).json({
                 data: null,
                 message: "Please provide all the required fields",
-
-            })
-
+            });
         }
 
+        // Check if the user already exists
         const user = await User.findOne({ email });
-
         if (user) {
-
-            return res.status(400).json({ message: "User already exist" });
+            return res.status(400).json({ message: "User already exists" });
         }
 
+        // Hash password
         const hashedPassword = await bcrypt.hash(password, 6);
 
+        // Create additional details
         const createAdditionalDetails = await AdditionalDetails.create({
-
-
             gender: null,
             address: null,
             dateOfBirth: null,
             nationality: null,
             maritalStatus: null,
             bio: null,
-
         });
 
+        // Create new user
         const newUser = new User({
             fullname,
             email,
@@ -124,41 +122,33 @@ const signupUser = async (req, res) => {
 
         await newUser.save();
 
-        // now we are going to verfify user Email
-
+        // Send verification email
         try {
-
-            await sendMail(email, newUser._id, "Eamil Verification", "verifyEmail", newUser.fullname);
-
+            await sendMail(email, newUser._id, "Email Verification", "verifyEmail", newUser.fullname);
         } catch (error) {
-
-            return res.status(400).json({
-
+            console.error("Error sending verification email:", error.message);
+            return res.status(500).json({
                 success: false,
                 data: newUser,
-                message: "some error occured while send mail ",
-                error: null,
-
-            })
+                message: "Some error occurred while sending mail",
+                error: error.message,
+            });
         }
 
-
+        // Respond with success
         return res.status(200).json({
-
             success: true,
             data: newUser,
             message: "User registered successfully",
             error: null,
-
-        })
+        });
 
     } catch (error) {
-
-        res.status(500).json({ message: error.message });
-        console.log("Error in signupUser", error.message);
-
+        console.error("Error in signupUser:", error.message);
+        return res.status(500).json({ message: error.message });
     }
 };
+
 
 
 
@@ -181,17 +171,20 @@ const loginUser = async (req, res) => {
         }
 
         // Find user by email and populate additional details
-        const user = await User.findOne({ email }).populate('additionalDetails');
 
-        // console.log("user is at login ", user);
+        const user = await User.findOne({ email })
+            .populate("additionalDetails") // Populates `additionalDetails`
+            .populate({ path: "searchHistory" });
 
-        if (!user) {
+        console.log("user is at login ", user);
+
+        if (user === null || user == undefined) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
         // Check if the user is verified
 
-        if(!user.isEmailVerified){
+        if (!user.isEmailVerified) {
 
             return res.status(401).json({
                 message: "User is not verified by email",
@@ -199,7 +192,7 @@ const loginUser = async (req, res) => {
                 data: null,
             });
         }
-        
+
         if (!user.isVerified) {
             return res.status(401).json({
                 message: "User is not verified by admin",
@@ -212,7 +205,10 @@ const loginUser = async (req, res) => {
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
         if (!isPasswordCorrect) {
-            return res.status(400).json({ message: "Invalid email or password" });
+
+            console.log("Password is incorrect");
+            return res.status(400).json({ message: "Invalid password" });
+
         }
 
         // Generate JWT Token
@@ -252,12 +248,14 @@ const loginUser = async (req, res) => {
             role: user.role,
             token: user.token,
             credits: user.credits,
+            searchHistory: user.searchHistory,
             additionalDetails: user.additionalDetails, // Include populated additional details
             message: "Login successful",
 
         });
 
     } catch (error) {
+
         res.status(500).json({ message: error.message });
         // console.log("Error in loginUser:", error.message);
     }
