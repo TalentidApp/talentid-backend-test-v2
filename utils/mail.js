@@ -21,11 +21,16 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
 
         // Create Nodemailer transport
         const transport = nodemailer.createTransport({
-            host: process.env.mail_host,
+            // host: process.env.mail_host,
+            host:"smtp.zeptomail.in",
             port: 587,
             auth: {
-                user: process.env.mail_user,
-                pass: process.env.mail_pass,
+                // user: process.env.mail_user,
+                // pass: process.env.mail_pass,
+
+                user:"emailapikey",
+                pass:"PHtE6r0OEOzpg2Mp9hdRtvOxFpGhY497/+02KQIVtIZHAqALS01cq9B+lzWyqB4pAfNEF/SYyN08ubOVtOzWImblYG4dWmqyqK3sx/VYSPOZsbq6x00atlwbdk3VV4Xpd99s1i3Vv9veNA=="
+
             },
         });
 
@@ -85,7 +90,8 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
 
         // Define email options
         const mailOptions = {
-            from: `"Talent ID" <${process.env.mail_user}>`,
+            // from: `"Talent ID" <${process.env.mail_user}>`,
+            from: '"TalentId Team" <Support@talentid.app>',
             to: email,
             subject: `${subject} - Talent ID`,
             html: htmlContent,

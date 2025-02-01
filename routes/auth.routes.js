@@ -18,11 +18,13 @@ import {
 } from "../controllers/auth.controller.js";
 import router from "./user.routes.js";
 
+import protectRoute from "../middlewares/protectRoute.middleware.js";
+
 
 router.post("/signup", signupUser);
 router.post("/login", loginUser);
 
-router.post("/resetPassword",resetPassword); // implement protected routes 
+router.post("/resetPassword",protectRoute,resetPassword); // implement protected routes 
 
 router.post("/forgotPasswordEmail",forgotPasswordEmail);
 

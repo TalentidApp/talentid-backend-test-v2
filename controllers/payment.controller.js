@@ -21,7 +21,9 @@ dotenv.config();
 
 export const createPaymentLink = async (req, res) => {
     try {
-        const { customerDetails, orderAmount,credits, userId, orderId } = req.body;
+        const { customerDetails, orderAmount,credits, orderId } = req.body; // here i have change
+
+        const userId = req.user.id; // it comes from middleware  
 
         console.log("create payment link data ",credits);
 

@@ -26,7 +26,26 @@ const additionalDetailsSchema = new mongoose.Schema({
   bio: {
     type: String,
     default: null, // Optional, defaults to null
+  },
+  numberOfEmployees: {
+
+    type: Number,
+    default: 0, // Optional, defaults to 0
+
+  },
+  state: {
+
+    type: String,
+    default: null, // Optional, defaults to null
+
+  },
+  companyWebsite: {
+
+    type: String,
+    default: null, // Optional, defaults to null
+
   }
+  
 });
 
 const AdditionalDetails = mongoose.model('AdditionalDetails', additionalDetailsSchema);

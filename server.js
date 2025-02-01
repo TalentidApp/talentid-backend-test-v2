@@ -15,6 +15,7 @@ import optOutRoutes from "./routes/optout.route.js";
 import userRoutes from "./routes/user.routes.js";
 import oipRoutes from "./routes/oip.routes.js";
 
+
 dotenv.config();
 
 // Connect to the database
@@ -32,9 +33,8 @@ app.use(cookieParser());
 app.use(
   cors({
 
-    origin:"*",
-    credentials: true,
-    
+    origin: "http://localhost:5173", // ✅ Set frontend URL explicitly
+    credentials: true, // ✅ Required for cookies
   })
 );
 

@@ -12,6 +12,7 @@ import {
 } from "../controllers/user.controllers.js";
 
 
+
 import protectRoute from "../middlewares/protectRoute.middleware.js";
 
 import logSearch from "../middlewares/searchHistory.middleware.js";
@@ -20,20 +21,20 @@ import logSearch from "../middlewares/searchHistory.middleware.js";
 const router = express.Router();
 
 
-router.post("/user-info",searchUserInfo); 
+router.post("/user-info",protectRoute,searchUserInfo); 
 
 
-router.get("/fetchAllusers",fetchAllusers);
+router.get("/fetchAllusers",protectRoute,fetchAllusers);
 
-router.get("/getUserHistoryData/:userId",getUserHistoryData);
+router.get("/getUserHistoryData",protectRoute,getUserHistoryData);
 
-router.delete("/deleteUserAccount",deleteUserAccount);
+router.delete("/deleteUserAccount",protectRoute,deleteUserAccount);
 
-router.post("/updateUserData",updateUserData);
+router.post("/updateUserData",protectRoute,updateUserData);
 
-router.get("/getAllApiCountValue",getAllApiCountValue);
+router.get("/getAllApiCountValue",protectRoute,getAllApiCountValue);
 
-router.get("/getUserCredits/:userId",getUserCredits);
+router.get("/getUserCredits",protectRoute,getUserCredits);
 
 
 

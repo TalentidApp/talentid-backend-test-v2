@@ -151,12 +151,19 @@ const filterCandidateData = (companiesData) =>
 // Main controller
 const searchUserInfo = async (req, res) => {
   try {
-    const { email, userId } = req.body;
+
+    console.log("user id is ",req.user.id);
+
+    let userId = req.user.id;
+
+    const { email} = req.body;
+
     if (!email || !userId) {
       return res.status(400).json({ message: "Both email and userId are required" });
     }
 
     // Validate the user initiating the search
+
     const isUserFound = await User.findById(userId);
     if (!isUserFound) return res.status(404).json({ message: "User not found" });
     if (!isUserFound.isVerified) return res.status(401).json({ message: "User is not verified" });
@@ -395,7 +402,9 @@ const getUserHistoryData = async (req, res) => {
 
     // Extract the userId from the request parameters
 
-    const { userId } = req.params;
+    // const { userId } = req.params;
+
+    const userId = req.user.id;
 
     console.log("user id is ", userId);
 
@@ -457,7 +466,7 @@ const getUserCredits = async (req, res) => {
 
   try {
 
-    const { userId } = req.params;
+    const userId = req.user.id;
 
     if (!userId) {
 
@@ -532,7 +541,8 @@ const fetchAllusers = async (req, res) => {
 
 const deleteUserAccount = async (req, res) => {
   try {
-    const { id } = req.query; // Get the user ID from the query parameters
+    
+    const id = req.user.id;
 
     // Check if ID is provided
 

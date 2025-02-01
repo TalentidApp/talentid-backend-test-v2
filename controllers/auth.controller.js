@@ -155,9 +155,6 @@ const signupUser = async (req, res) => {
 // login the user 
 
 const loginUser = async (req, res) => {
-
-    // console.log("Inside login controller");
-
     try {
         const { email, password } = req.body;
 
@@ -171,21 +168,16 @@ const loginUser = async (req, res) => {
         }
 
         // Find user by email and populate additional details
-
         const user = await User.findOne({ email })
-            .populate("additionalDetails") // Populates `additionalDetails`
+            .populate("additionalDetails")
             .populate({ path: "searchHistory" });
 
-        console.log("user is at login ", user);
-
-        if (user === null || user == undefined) {
+        if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
         // Check if the user is verified
-
         if (!user.isEmailVerified) {
-
             return res.status(401).json({
                 message: "User is not verified by email",
                 error: null,
@@ -205,27 +197,29 @@ const loginUser = async (req, res) => {
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
         if (!isPasswordCorrect) {
-
-            console.log("Password is incorrect");
             return res.status(400).json({ message: "Invalid password" });
-
         }
 
         // Generate JWT Token
-        const token = jwt.sign({ id: user._id, email: user.email, role: user.role }, process.env.JWT_SECRET, {
-            expiresIn: '7d', // Manually set expiration to 7 days
-        });
+        const expiresIn = 24 * 60 * 60 * 1000; // 1 day in milliseconds
+        const tokenExpiry = Date.now() + expiresIn; // Calculate expiry time
+        const token = jwt.sign(
+            { id: user._id, email: user.email, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '1d' } // Token expires in 1 day
+        );
 
         // Set the token as an HTTP-only cookie
         res.cookie('token', token, {
-            httpOnly: true,   // Cookie can't be accessed via JavaScript
-            maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days expiration in milliseconds
+            httpOnly: true,
+            secure: false, // Use true in production with HTTPS
+            sameSite: 'lax', // Or 'none' for cross-origin requests
+            maxAge: expiresIn, // 1 day
         });
 
         // Generate external token
         try {
             const data = await axios.get(`${process.env.base_company_url}/generate_token/${email}`);
-            // console.log("Generated external token: ", data.data.token);
             user.token = data.data.token;
         } catch (error) {
             return res.status(500).json({
@@ -237,7 +231,7 @@ const loginUser = async (req, res) => {
 
         await user.save();
 
-        // Respond with user data (without password)
+        // Respond with user data (without password) and include token expiry time
         res.status(201).json({
             _id: user._id,
             fullname: user.fullname,
@@ -250,16 +244,15 @@ const loginUser = async (req, res) => {
             credits: user.credits,
             searchHistory: user.searchHistory,
             additionalDetails: user.additionalDetails, // Include populated additional details
+            tokenExpiry, // Send token expiry time
             message: "Login successful",
-
         });
 
     } catch (error) {
-
         res.status(500).json({ message: error.message });
-        // console.log("Error in loginUser:", error.message);
     }
 };
+
 
 
 // reset the password 
@@ -270,7 +263,9 @@ const resetPassword = async (req, res) => {
 
         console.log("reset pass ke andar ");
 
-        const { password, confirmPasswordValue, userId } = req.body;
+        const { password, confirmPasswordValue} = req.body;
+
+        let userId = req.user.id;
 
         console.log("password ", password, " confirm password ", confirmPasswordValue, " userId ", userId);
 
