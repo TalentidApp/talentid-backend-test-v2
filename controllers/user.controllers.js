@@ -48,18 +48,18 @@ const fetchAppliedCompaniesFromScreenit = async (email, token) => {
 
   // Process profile data
   return response.data.profile.map((data) => ({
-    companyName: data?.org_name,
-    applicantName: data?.candidate_name,
-    appliedAt: data?.start_time,
-    jobTitle: data?.job_title,
-    applicationStatus: `${data?.recommended_status == "Hire"? "Selected":"Rejected"}`,
-    currentStatus: `${data?.interview_status == "Incomplete" ? "Pending" : "Selected"}`,
-    currentRound: data?.round_name,
+    companyName: data?.orgname,
+    applicantName: data?.candidate_name || "",
+    appliedAt: data?.date,
+    jobTitle: data?.jobtitle,
+    applicationStatus: `${data?.applicationstatus == "Hire"? "Selected":"Rejected"}`,
+    currentStatus: `${data?.applicationstatus == "Incomplete" ? "Pending" : "Selected"}`,
+    currentRound: data?.roundname,
     rounds: [
       {
-        roundName: data?.round_name,
-        date: data?.start_time,
-        status: `${data?.interview_status == "Incomplete" ? "Pending" : "Selected"}`,
+        roundName: data?.roundname,
+        date: data?.date,
+        status: `${data?.applicationstatus == "Incomplete" ? "Pending" : "Selected"}`,
       },
     ],
   }));
@@ -73,6 +73,9 @@ const fetchAppliedCompaniesFromDummyBackend = async (email) => {
   console.log("dummy ke andar ");
 
   const response = await axios.get(`${process.env.dummyBackendCompanyUrl}/${email}`);
+
+  console.log("dummy ke andar response",response.data);
+
   if (!response?.data?.data?.appliedCompanies) return [];
 
   return response.data.data.appliedCompanies;
@@ -576,6 +579,8 @@ const deleteUserAccount = async (req, res) => {
     });
   }
 };
+
+
 
 
 

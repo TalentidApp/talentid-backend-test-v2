@@ -5,6 +5,7 @@ import connectDB from "./db/connectDB.js";
 import cookieParser from "cookie-parser";
 import { startCronJob } from "./utils/cronJobs.js";
 
+
 // Routes
 import paymentRoute from "./routes/payment.route.js";
 import OrderRoutes from "./routes/order.route.js";
@@ -12,11 +13,13 @@ import authRoutes from "./routes/auth.routes.js";
 import contactUsRoute from "./routes/contactUs.route.js";
 import optOutRoutes from "./routes/optout.route.js";
 import userRoutes from "./routes/user.routes.js";
+import oipRoutes from "./routes/oip.routes.js";
 
 dotenv.config();
 
 // Connect to the database
 connectDB();
+
 
 // Initialize Express app
 const app = express();
@@ -42,6 +45,8 @@ app.use("/api/orders", OrderRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/contactus", contactUsRoute);
 app.use("/api/optout", optOutRoutes);
+
+app.use("/api/user",oipRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Talent ID API");

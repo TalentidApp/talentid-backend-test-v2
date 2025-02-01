@@ -123,6 +123,12 @@ const userSchema = new mongoose.Schema(
         ref: "Candidate",
       }
     ],
+
+    HiringCandidate:[{
+
+        type:mongoose.Schema.Types.ObjectId,
+        ref:"HiringCandidate"
+    }]
   },
   { timestamps: true }
 );

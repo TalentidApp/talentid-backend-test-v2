@@ -9,7 +9,7 @@ const roundSchema = new mongoose.Schema({
 
 const appliedCompanySchema = new mongoose.Schema({
   companyName: { type: String, required: true },
-  applicantName:{type: String, required: true},
+  applicantName:{type: String},
   appliedAt: { type: Date, default: Date.now },
   jobTitle: { type: String, required: true },
   applicationStatus: { type: String, enum: ["Pending", "Selected", "Rejected","Completed","Incomplete"], default: "Pending" },

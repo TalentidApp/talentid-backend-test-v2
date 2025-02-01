@@ -82,3 +82,10 @@ export const allCompaniesEndpoint = [
 ];
 
 
+
+export const hiringCandidateStatus = {
+
+    "active":"Active",
+    "inactive":"Inactive"
+}
+
