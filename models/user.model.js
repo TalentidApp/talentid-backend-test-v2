@@ -1,134 +1,52 @@
-import mongoose, { Mongoose } from "mongoose";
-
-import AdditionalDetails from "./additionalDetails.model.js";
-
-import Candidate from "./candidate.model.js";
-
-// const searchHistorySchema = new mongoose.Schema({
-//   candidate_name: {
-//     type: String,
-//     // required: true,
-//   },
-//   email:{
-
-//     type: String,
-    
-//   },
-//   org_name: {
-//     type: String,
-//     // required: true,
-//   },
-//   job_title: {
-//     type: String,
-//     // required: true,
-//   },
-//   start_time: {
-//     type: Date,
-//     // required: true,
-//   },
-//   round_name: {
-//     type: String,
-//     // required: true,
-//   },
-//   recommended_status: {
-//     type: String,
-//     // required: true,
-//   },
-//   proxy: {
-//     type: Boolean,
-//     // required: true,
-//   },
-//   interview_status: {
-//     type: String,
-//     // required: true,
-//   },
-// },
-//   { timestamps: true }
-
-// );
-
-
-// const SearchedHistorySchema = mongoose.model("SearchedHistorySchema", searchHistorySchema);
-
-
 const userSchema = new mongoose.Schema(
   {
-    fullname: {
-      type: String,
-      required: true,
-    },
-    email: {
-      type: String,
-      required: true,
-    },
-    phone: {
-      type:String
-    },
-    company: {
-      type: String,
-      required: true,
-    },
+    fullname: { type: String, required: true },
+    email: { type: String, required: true },
+    phone: { type: String },
+    company: { type: String, required: true },
     role: {
       type: String,
-      enum: ["Admin", "User","Corporate HR","HR Agency","Others"],
+      enum: ["Admin", "User", "Corporate HR", "HR Agency", "Others"],
       required: true,
     },
-    password: {
-      type: String,
-      minLength: 8,
-      required: true,
-    },
-    additionalDetails:{
-
-      type:mongoose.Schema.Types.ObjectId,
+    password: { type: String, minLength: 8, required: true },
+    additionalDetails: {
+      type: mongoose.Schema.Types.ObjectId,
       ref: "AdditionalDetails",
-
     },
     isEmailVerified: { type: Boolean, default: false },
-    isVerified:{
-
-      type: Boolean,
-      default: false,
-
-    },
-    credits: {
-      type: Number,
-      default: 100,
-    },
-    userImage: {
-
-      type: String,
-
-    },
+    isVerified: { type: Boolean, default: false },
+    credits: { type: Number, default: 100 },
+    userImage: { type: String },
     token: {
       type: String,
       expires: {
         type: Date,
-        default: () => new Date(Date.now() + 5 * 60 * 60 * 1000) // 5 hours from now
+        default: () => new Date(Date.now() + 5 * 60 * 60 * 1000), // 5 hours expiry
       },
     },
-
-    resetPasswordToken: {
-      type: String,
-    },
+    resetPasswordToken: { type: String },
     resetPasswordTokenExpires: {
       type: Date,
-      default: () => new Date(Date.now() + 5 * 60 * 1000), // 5 minutes from now
+      default: () => new Date(Date.now() + 5 * 60 * 1000), // 5 minutes expiry
     },
+    searchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
+    HiringCandidate: [{ type: mongoose.Schema.Types.ObjectId, ref: "HiringCandidate" }],
+    OfferReleases: { type: Number, default: 0 },
 
-    searchHistory:[
-      {
+    // New Fields
+    companySize: { type: String, enum: ["Startup", "Small", "Medium", "Large"], default: "Small" },
+    industry: { type: String, required: true },
+    designation: { type: String, required: true },
 
-        type:mongoose.Schema.Types.ObjectId,
-        ref: "Candidate",
-      }
-    ],
+    interviewScheduled: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
+    shortlistedCandidates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
+    offerLettersSent: { type: Number, default: 0 },
 
-    HiringCandidate:[{
+    subscriptionPlan: { type: String, enum: ["Free", "Basic", "Pro", "Enterprise"], default: "Free" },
+    subscriptionExpiry: { type: Date },
 
-        type:mongoose.Schema.Types.ObjectId,
-        ref:"HiringCandidate"
-    }]
+    activityLogs: [{ action: String, timestamp: { type: Date, default: Date.now } }]
   },
   { timestamps: true }
 );
@@ -136,6 +54,3 @@ const userSchema = new mongoose.Schema(
 const User = mongoose.model("User", userSchema);
 
 export default User;
-
-
-
