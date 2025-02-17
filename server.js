@@ -6,6 +6,8 @@ import cookieParser from "cookie-parser";
 import { startCronJob } from "./utils/cronJobs.js";
 
 
+
+
 // Routes
 import paymentRoute from "./routes/payment.route.js";
 import OrderRoutes from "./routes/order.route.js";
@@ -14,6 +16,8 @@ import contactUsRoute from "./routes/contactUs.route.js";
 import optOutRoutes from "./routes/optout.route.js";
 import userRoutes from "./routes/user.routes.js";
 import oipRoutes from "./routes/oip.routes.js";
+
+import offerRoutes from "./routes/offer.route.js";
 
 
 dotenv.config();
@@ -47,6 +51,8 @@ app.use("/api/contactus", contactUsRoute);
 app.use("/api/optout", optOutRoutes);
 
 app.use("/api/user",oipRoutes);
+
+app.use("/api/offer",offerRoutes);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Talent ID API");

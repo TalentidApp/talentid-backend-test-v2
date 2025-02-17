@@ -26,6 +26,11 @@ const hiringCandidateSchema = new mongoose.Schema({
     educationCollege: { type: String },
     educationDegree: { type: String },
     resumeLink: { type: String },
+    role:{
+
+        type: String,
+        default:"Candidate",
+    },
     
     // Linking to Offer Schema
     offers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Offer" }]

@@ -15,25 +15,25 @@ const createOffer = async (req, res) => {
     try {
         const {
             jobTitle,
-            salary,
             joiningDate,
             expiryDate,
-            emailSubject,
-            emailMessage,
             candidateEmail,
             candidateName,
             candidatePhoneNo,
             companyName,
+            offerLetterStatus
         } = req.body;
 
         const hrId = req.user.id;
 
         // Ensure required fields are present
-        if (!hrId || !jobTitle || !joiningDate || !expiryDate || !emailSubject || !emailMessage || !candidateEmail) {
+
+        if (!hrId || !jobTitle || !joiningDate || !expiryDate || !candidateEmail || !offerLetterStatus) {
             throw new Error("Missing required fields");
         }
 
         // Check if files were uploaded
+
         if (!req.files || !req.files.offerLetter || !req.files.candidateResume) {
             throw new Error("Offer letter and candidate resume are required");
         }
@@ -58,6 +58,7 @@ const createOffer = async (req, res) => {
             });
 
             await candidate.save({ session });
+
         } else {
             if (!candidate.resumeLink) {
                 candidate.resumeLink = candidateResumeLink;
@@ -72,6 +73,7 @@ const createOffer = async (req, res) => {
             salary,
             offerLetterLink,
             joiningDate,
+            offerLetterStatus,
             expirationDate: expiryDate,
         });
 
@@ -81,39 +83,9 @@ const createOffer = async (req, res) => {
         candidate.offers.push(newOffer._id);
         await candidate.save({ session });
 
-
-        // update the offer letter released count 
-
-        const updatedCandidate = await User.findByIdAndUpdate(
-            hrId,
-            {
-              $inc: {
-                offerLettersSent: 1, // Directly increment the number field
-              },
-            },
-            { new: true }
-          );
-          
-
         // Commit the transaction (if everything is successful)
         await session.commitTransaction();
         session.endSession();
-
-        // Send email with offer letter attachment
-        await sendMail(
-            candidate.email,
-            null,
-            emailSubject,
-            "offer-release",
-            candidateName,
-            null,
-            candidateName,
-            companyName,
-            jobTitle,
-            offerLetterLink,
-            joiningDate,
-            expiryDate
-        );
 
         res.status(201).json({ message: "Offer created successfully", offer: newOffer });
 
@@ -128,74 +100,4 @@ const createOffer = async (req, res) => {
 };
 
 
-
-
-
-
-
-
-const getAllOffers  = async(req,res)=>{
-
-    try{
-
-        const userId = req.user.id;
-        
-        const offers = await Offer.find({ hr: userId }).populate("candidate");
-
-
-        if(offers.length === 0){
-
-            return res.status(404).json({ message: "No offers found for this HR" });
-
-        }
-        else{
-
-            return res.status(200).json(offers);
-
-        }
-
-    }catch(error){
-
-
-        res.status(500).json({error:error.message});
-
-
-    }
-}
-
-
-const getOffersByStatus = async(req,res)=>{
-
-    try{
-
-        const status = req.params.status;
-
-        const userId = req.user.id;
-
-        const offers = await Offer.find({ hr: userId, status }).populate("candidate");
-
-        if(offers.length === 0){
-
-            return res.status(404).json({ message: "No offers found for this HR" });
-
-        }
-        else{
-
-            return res.status(200).json(offers);
-
-        }
-
-    }catch(error){
-
-        res.status(500).json({error:error.message});
-
-    }
-}
-
-
-export {
-
-    createOffer,
-    getAllOffers,
-    getOffersByStatus
-}
+export default createOffer;

@@ -1,3 +1,6 @@
+
+import mongoose from "mongoose";
+
 const userSchema = new mongoose.Schema(
   {
     fullname: { type: String, required: true },
@@ -31,16 +34,14 @@ const userSchema = new mongoose.Schema(
       default: () => new Date(Date.now() + 5 * 60 * 1000), // 5 minutes expiry
     },
     searchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
-    HiringCandidate: [{ type: mongoose.Schema.Types.ObjectId, ref: "HiringCandidate" }],
+    // HiringCandidate: [{ type: mongoose.Schema.Types.ObjectId, ref: "HiringCandidate" }],
     OfferReleases: { type: Number, default: 0 },
 
     // New Fields
     companySize: { type: String, enum: ["Startup", "Small", "Medium", "Large"], default: "Small" },
-    industry: { type: String, required: true },
-    designation: { type: String, required: true },
+    industry: { type: String, },
+    designation: { type: String,  },
 
-    interviewScheduled: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
-    shortlistedCandidates: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
     offerLettersSent: { type: Number, default: 0 },
 
     subscriptionPlan: { type: String, enum: ["Free", "Basic", "Pro", "Enterprise"], default: "Free" },

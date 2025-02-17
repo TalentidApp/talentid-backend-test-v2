@@ -4,34 +4,31 @@ import cloudinary from '../config/cloudinary.js';
 
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
-  params: {
-    folder: 'uploads', // Folder name in Cloudinary
-    format: async (req, file) => {
-      // Map MIME types to file extensions (common ones)
-      const mimeToExtension = {
-        'image/jpeg': 'jpg',
-        'image/png': 'png',
-        'image/gif': 'gif',
-        'image/webp': 'webp',
-        'application/pdf': 'pdf',
-        'text/plain': 'txt',
-      };
-
-      // Return the appropriate file extension, defaulting to 'bin' for unknown types
-      return mimeToExtension[file.mimetype] || 'bin';
-    },
-    public_id: (req, file) => file.originalname.split('.')[0], // Use original file name without extension
-  },
+  params: async (req, file) => ({
+    folder: 'uploads',
+    format: file.mimetype.split('/')[1] || 'bin', // Get extension from MIME type
+    public_id: file.originalname.split('.')[0], // Use filename without extension
+    resource_type: 'auto', // Automatically detect file type
+  }),
 });
 
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    // No strict MIME type filtering
-    cb(null, true); // Accept all file types
-  },
-});
+const allowedMimeTypes = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'text/plain',
+];
+
+const fileFilter = (req, file, cb) => {
+  if (allowedMimeTypes.includes(file.mimetype)) {
+    cb(null, true); // Accept file
+  } else {
+    cb(new Error('Invalid file type'), false); // Reject file
+  }
+};
+
+const upload = multer({ storage, fileFilter });
 
 export default upload;
-
-

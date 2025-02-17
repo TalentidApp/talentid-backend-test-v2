@@ -1,18 +1,20 @@
-import { userVerificationTemplate } from "./templates/userVerificationTemplate.js";
+import { userVerificationTemplate } from "./templates/auth-templates/userVerificationTemplate.js";
 import { randomStringGenerator, generateResetPasswordToken } from "./data.js";
-import { resetPasswordTemplate } from "./templates/resetPasswordTemplate.js";
-import { creditUpdateTemplate } from "./templates/creditTemplate.js";
+import { resetPasswordTemplate } from "./templates/auth-templates/resetPasswordTemplate.js";
+import { creditUpdateTemplate } from "./templates/offer-templates/creditTemplate.js";
 import nodemailer from "nodemailer";
 import User from "../models/user.model.js";
-import { emailVerificationTemplate } from "./templates/emailVerificationTemplate.js";
+import { emailVerificationTemplate } from "./templates/auth-templates/emailVerificationTemplate.js";
 
-// import image from "../assests/image.png"
+import { offerLetterTemplate } from "./templates/offer-templates/OfferLetter-Template.js";
 
-export async function sendMail(email, userId = null, subject, emailType, fullname, credits = null) {
+export async function sendMail(email, userId = null, subject, emailType, fullname, credits = null,candidateName, companyName, jobTitle, offerLetterLink, joiningDate, expiryDate) {
     try {
         // Debugging info
         console.log("Email Details:", { email, userId, subject, emailType, fullname, credits });
         console.log("Mail credentials:", process.env.mail_user, process.env.mail_pass);
+
+        console.log("email type is ",emailType);
 
         // Ensure environment variables are set
         if (!process.env.mail_user || !process.env.mail_pass || !process.env.mail_host) {
@@ -25,11 +27,9 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
             host:"smtp.zeptomail.in",
             port: 587,
             auth: {
-                // user: process.env.mail_user,
-                // pass: process.env.mail_pass,
 
-                user:"emailapikey",
-                pass:"PHtE6r0OEOzpg2Mp9hdRtvOxFpGhY497/+02KQIVtIZHAqALS01cq9B+lzWyqB4pAfNEF/SYyN08ubOVtOzWImblYG4dWmqyqK3sx/VYSPOZsbq6x00atlwbdk3VV4Xpd99s1i3Vv9veNA=="
+                user:process.env.mail_user,
+                pass:process.env.mail_pass,
 
             },
         });
@@ -40,6 +40,7 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
         let findUser;
 
         switch (emailType) {
+
             case "verifyEmail":
                 console.log("Handling email verification");
                 findUser = await User.findById(userId);
@@ -82,6 +83,11 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
                 htmlContent = creditUpdateTemplate(fullname, credits);
                 break;
 
+            case "offer-release":
+                console.log("Handling offer release email");
+                htmlContent = offerLetterTemplate(candidateName,companyName,jobTitle,offerLetterLink,joiningDate,expiryDate);
+                break;
+
             default:
                 throw new Error(`Invalid email type: ${emailType}`);
         }
@@ -89,13 +95,28 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
         if (!htmlContent) throw new Error("Failed to generate email content.");
 
         // Define email options
+
         const mailOptions = {
-            // from: `"Talent ID" <${process.env.mail_user}>`,
             from: '"TalentId Team" <Support@talentid.app>',
             to: email,
             subject: `${subject} - Talent ID`,
             html: htmlContent,
         };
+        
+        // Dynamically add attachments if both files exist
+        const attachments = [];
+        if (offerLetterLink) {
+            attachments.push({
+                filename: "OfferLetter.pdf",
+                path: offerLetterLink,
+            });
+        }
+        
+        // Add attachments only if there are any
+        if (attachments.length > 0) {
+            mailOptions.attachments = attachments;
+        }
+        
 
         // Send email
         const mailResponse = await transport.sendMail(mailOptions);
