@@ -11,20 +11,12 @@ const router = express.Router();
 router.post(
     "/create-offer",
     protectRoute,
-    upload.fields([
-        { name: "offerLetter", maxCount: 1 },
-        { name: "candidateResume", maxCount: 1 }
-    ]),
     createOffer
 );
 
 router.post(
     "/create-offer-punch",
     protectRoute,
-    upload.fields([
-        { name: "offerLetter", maxCount: 1 },
-        { name: "candidateResume", maxCount: 1 }
-    ]),
     createOfferPunch
 );
 

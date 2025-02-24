@@ -7,10 +7,68 @@ import cloudinary from '../config/cloudinary.js';
 
 import mongoose from "mongoose";
 
-const createOffer = async (req, res) => {
+import axios from "axios";
 
-    const session = await mongoose.startSession(); // Start a transaction session
-    session.startTransaction(); // Begin transaction
+import User from "../models/user.model.js";
+
+import { downloadPDF } from "../utils/downloadPdf.js";
+
+import UploadImageToCloudinary from "../utils/uploadImageToCloudinary.js";
+
+import FormData from "form-data";
+import fs from "fs";
+
+
+async function fetchSkillsFromExternalApi(resumeFile) {
+    try {
+        if (!fs.existsSync(resumeFile.tempFilePath)) {
+            throw new Error("Temp file does not exist.");
+        }
+
+        const fileBuffer = fs.readFileSync(resumeFile.tempFilePath);
+        if (!fileBuffer || fileBuffer.length === 0) {
+            throw new Error("Temp file is empty.");
+        }
+
+        const formData = new FormData();
+        formData.append("resume", fileBuffer, {
+            filename: resumeFile.name,
+            contentType: resumeFile.mimetype,
+        });
+
+        // Calculate Content-Length
+        const contentLength = await new Promise((resolve, reject) => {
+            formData.getLength((err, length) => {
+                if (err) reject(err);
+                else resolve(length);
+            });
+        });
+
+        const response = await axios.post("http://localhost:3001/upload", formData, {
+            headers: {
+                ...formData.getHeaders(),
+                "Content-Length": contentLength,
+            },
+            maxBodyLength: Infinity, // Allow large files
+        });
+
+        console.log("Response data:", response.data);
+        return response.data;
+    } catch (error) {
+        console.error("Error fetching skills from external API:", error.response?.data || error.message);
+        return [];
+    }
+}
+
+
+
+
+
+
+
+const createOffer = async (req, res) => {
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
     try {
         const {
@@ -26,26 +84,57 @@ const createOffer = async (req, res) => {
             companyName,
         } = req.body;
 
-        const hrId = req.user.id;
-
-        // Ensure required fields are present
-        if (!hrId || !jobTitle || !joiningDate || !expiryDate || !emailSubject || !emailMessage || !candidateEmail) {
-            throw new Error("Missing required fields");
+        const hrId = req.user?.id;
+        if (!hrId) {
+            return res.status(401).json({ error: "HR ID is missing. Unauthorized access." });
         }
 
-        // Check if files were uploaded
-        if (!req.files || !req.files.offerLetter || !req.files.candidateResume) {
-            throw new Error("Offer letter and candidate resume are required");
+        // Validate required fields
+        if (!jobTitle || !joiningDate || !expiryDate || !emailSubject || !emailMessage || !candidateEmail) {
+            return res.status(400).json({ error: "Missing required fields." });
         }
 
-        // Extract file URLs from Cloudinary
-        const offerLetterLink = req.files.offerLetter[0].path;
-        const candidateResumeLink = req.files.candidateResume[0].path;
+        // Validate file uploads
+        if (!req.files?.offerLetter || !req.files?.candidateResume) {
+            return res.status(400).json({ error: "Offer letter and candidate resume are required." });
+        }
 
-        console.log("Uploaded Offer Letter:", offerLetterLink);
-        console.log("Uploaded Candidate Resume:", candidateResumeLink);
+        console.log("Offer letter files:", req.files.offerLetter);
+        console.log("Candidate resume files:", req.files.candidateResume);
 
-        // Check if candidate exists
+        let offerLetterLink, candidateResumeLink;
+        let extractedSkills = [];
+
+        // Upload offer letter
+        try {
+            const offerLetterUpload = await UploadImageToCloudinary(req.files.offerLetter, "Candidate_Offer_Letter");
+            offerLetterLink = offerLetterUpload.url;
+            console.log("Offer letter link:", offerLetterLink);
+        } catch (error) {
+            console.error("Error uploading offer letter:", error.message);
+            throw new Error("Failed to upload offer letter.");
+        }
+
+        // Fetch skills from external API
+        try {
+            extractedSkills = await fetchSkillsFromExternalApi(req.files.candidateResume);
+            console.log("Extracted Skills:", extractedSkills);
+
+            if (!extractedSkills || !extractedSkills.response) {
+                throw new Error("Invalid response from skills extraction API.");
+            }
+
+            candidateResumeLink = extractedSkills.response.Uploaded_File_URL;
+            extractedSkills = extractedSkills.response.Skills || [];
+        } catch (error) {
+            console.error("Error extracting skills:", error.message);
+            return res.status(400).json({
+                message: "Error occurred while extracting skills",
+                error: error.message,
+            });
+        }
+
+        // Check if the candidate exists
         let candidate = await HiringCandidate.findOne({ email: candidateEmail }).session(session);
 
         if (!candidate) {
@@ -54,17 +143,22 @@ const createOffer = async (req, res) => {
                 email: candidateEmail,
                 phoneNo: candidatePhoneNo || "",
                 resumeLink: candidateResumeLink,
+                skills: extractedSkills || [],
                 offers: [],
             });
-
             await candidate.save({ session });
         } else {
+            // Update candidate's resume link if not present
             if (!candidate.resumeLink) {
                 candidate.resumeLink = candidateResumeLink;
             }
+            // Merge new skills if extracted successfully
+            if (extractedSkills?.length) {
+                candidate.skills = [...new Set([...candidate.skills, ...extractedSkills])]; // Avoid duplicates
+            }
         }
 
-        // Create Offer
+        // Create new offer
         const newOffer = new Offer({
             hr: hrId,
             candidate: candidate._id,
@@ -77,53 +171,49 @@ const createOffer = async (req, res) => {
 
         await newOffer.save({ session });
 
-        // Update candidate with offer reference
+        // Update candidate's offer list
         candidate.offers.push(newOffer._id);
         await candidate.save({ session });
 
+        // Increment offer letter count for HR
+        await User.findByIdAndUpdate(hrId, { $inc: { offerLettersSent: 1 } }, { new: true });
 
-        // update the offer letter released count 
-
-        const updatedCandidate = await User.findByIdAndUpdate(
-            hrId,
-            {
-              $inc: {
-                offerLettersSent: 1, // Directly increment the number field
-              },
-            },
-            { new: true }
-          );
-          
-
-        // Commit the transaction (if everything is successful)
+        // Commit transaction
         await session.commitTransaction();
         session.endSession();
 
-        // Send email with offer letter attachment
-        await sendMail(
-            candidate.email,
-            null,
-            emailSubject,
-            "offer-release",
-            candidateName,
-            null,
-            candidateName,
-            companyName,
-            jobTitle,
-            offerLetterLink,
-            joiningDate,
-            expiryDate
-        );
+        // Send email
+        try {
+            await sendMail(
+                candidate.email,
+                null,
+                emailSubject,
+                "offer-release",
+                candidateName,
+                null,
+                candidateName,
+                companyName,
+                jobTitle,
+                offerLetterLink,
+                joiningDate,
+                expiryDate
+            );
+        } catch (error) {
+            console.error("Error sending email:", error.message);
+            return res.status(500).json({ error: "Offer created but failed to send email." });
+        }
 
-        res.status(201).json({ message: "Offer created successfully", offer: newOffer });
+        return res.status(201).json({ message: "Offer created successfully", offer: newOffer });
 
     } catch (error) {
-        // Rollback any changes if an error occurs
-        await session.abortTransaction();
+        // Rollback changes in case of an error
+        if (session.inTransaction()) {
+            await session.abortTransaction();
+        }
         session.endSession();
 
-        console.error("Error in createOffer:", error);
-        res.status(500).json({ error: error.message });
+        console.error("Error in createOffer:", error.message);
+        return res.status(500).json({ error: error.message || "Internal Server Error" });
     }
 };
 
@@ -134,39 +224,44 @@ const createOffer = async (req, res) => {
 
 
 
-const getAllOffers  = async(req,res)=>{
 
-    try{
+const getAllOffers = async (req, res) => {
+
+    try {
 
         const userId = req.user.id;
-        
+
         const offers = await Offer.find({ hr: userId }).populate("candidate");
 
-
-        if(offers.length === 0){
+        if (offers.length === 0) {
 
             return res.status(404).json({ message: "No offers found for this HR" });
 
         }
-        else{
+        else {
 
             return res.status(200).json(offers);
 
         }
 
-    }catch(error){
+    } catch (error) {
 
 
-        res.status(500).json({error:error.message});
+        res.status(500).json({ error: error.message });
 
 
     }
 }
 
 
-const getOffersByStatus = async(req,res)=>{
 
-    try{
+
+
+
+
+const getOffersByStatus = async (req, res) => {
+
+    try {
 
         const status = req.params.status;
 
@@ -174,20 +269,20 @@ const getOffersByStatus = async(req,res)=>{
 
         const offers = await Offer.find({ hr: userId, status }).populate("candidate");
 
-        if(offers.length === 0){
+        if (offers.length === 0) {
 
             return res.status(404).json({ message: "No offers found for this HR" });
 
         }
-        else{
+        else {
 
             return res.status(200).json(offers);
 
         }
 
-    }catch(error){
+    } catch (error) {
 
-        res.status(500).json({error:error.message});
+        res.status(500).json({ error: error.message });
 
     }
 }

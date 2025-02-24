@@ -70,7 +70,6 @@ const createOffer = async (req, res) => {
             hr: hrId,
             candidate: candidate._id,
             jobTitle,
-            salary,
             offerLetterLink,
             joiningDate,
             offerLetterStatus,
@@ -83,11 +82,15 @@ const createOffer = async (req, res) => {
         candidate.offers.push(newOffer._id);
         await candidate.save({ session });
 
+        const populatedOffer = await Offer.findById(newOffer._id)
+            .populate('candidate')  // Populates the 'candidate' field
+            .exec();
+
         // Commit the transaction (if everything is successful)
         await session.commitTransaction();
         session.endSession();
 
-        res.status(201).json({ message: "Offer created successfully", offer: newOffer });
+        res.status(201).json({ message: "Offer created successfully", offer: populatedOffer });
 
     } catch (error) {
         // Rollback any changes if an error occurs

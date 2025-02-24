@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 
-import axios from 'axios'; // Make sure to install axios if you haven't
+import axios from 'axios'; 
 
 import AdditionalDetails from "../models/additionalDetails.model.js";
 
@@ -591,6 +591,25 @@ const deleteUserAccount = async (req, res) => {
 };
 
 
+
+// now i have to start the engagement server 
+
+const startEngagement = async(req,res)=>{
+
+  try{
+
+
+    // 1. it should difference bw the offer date and the joining date 
+    // 2. you should have send atleast five skills of that candidate 
+    // 3. now we have to send the skills to the openAI in order to generate questions but the number of questions depends on diff bw thw offer and joining date
+
+  }catch(error){
+
+    console.error("error in startEngagement", error.message);
+
+
+  }
+}
 
 
 

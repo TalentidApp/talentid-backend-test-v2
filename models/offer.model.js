@@ -31,7 +31,7 @@ const offerSchema = new mongoose.Schema({
     offerLetterStatus:{
 
         type: String,
-        enum: [ "Offer letter released","Candidate verbal commitment"],
+        enum: [ "Offer letter released","Candidate verbal commitment","Talentid"],
         default: "Talentid",
     }
 

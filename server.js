@@ -5,6 +5,10 @@ import connectDB from "./db/connectDB.js";
 import cookieParser from "cookie-parser";
 import { startCronJob } from "./utils/cronJobs.js";
 
+import fileUpload from "express-fileupload";
+
+import path from "path";
+
 
 
 
@@ -32,7 +36,8 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true })); // Parses URL-encoded data
+
 app.use(cookieParser());
 app.use(
   cors({
@@ -41,6 +46,22 @@ app.use(
     credentials: true, // ✅ Required for cookies
   })
 );
+
+
+import { fileURLToPath } from 'url';
+
+// Define __dirname manually
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+
+app.use(fileUpload({
+  useTempFiles: true,
+  tempFileDir: path.join(__dirname, 'tmp'), // Use a 'tmp' folder in your project directory
+}));
+
+
 
 // Routes
 app.use("/api/users", userRoutes);

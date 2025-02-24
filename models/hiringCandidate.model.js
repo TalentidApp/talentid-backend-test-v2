@@ -4,6 +4,11 @@ import { hiringCandidateStatus } from "../utils/data.js";
 const hiringCandidateSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true },
+    password:{
+
+        type:String,
+        
+    },
     phoneNo: { 
         type: String, 
         validate: {
@@ -20,7 +25,7 @@ const hiringCandidateSchema = new mongoose.Schema({
         enum: Object.values(hiringCandidateStatus), 
         default: hiringCandidateStatus.pending 
     },
-    joiningDate: { type: Date },
+    // joiningDate: { type: Date },
     skills: [{ type: String }],
     experience: { type: String },
     educationCollege: { type: String },

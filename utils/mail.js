@@ -7,14 +7,15 @@ import User from "../models/user.model.js";
 import { emailVerificationTemplate } from "./templates/auth-templates/emailVerificationTemplate.js";
 
 import { offerLetterTemplate } from "./templates/offer-templates/OfferLetter-Template.js";
+import HiringCandidate from "../models/hiringCandidate.model.js";
 
-export async function sendMail(email, userId = null, subject, emailType, fullname, credits = null,candidateName, companyName, jobTitle, offerLetterLink, joiningDate, expiryDate) {
+export async function sendMail(email, userId = null, subject, emailType, fullname, credits = null, candidateName, companyName, jobTitle, offerLetterLink, joiningDate, expiryDate) {
     try {
         // Debugging info
         console.log("Email Details:", { email, userId, subject, emailType, fullname, credits });
         console.log("Mail credentials:", process.env.mail_user, process.env.mail_pass);
 
-        console.log("email type is ",emailType);
+        console.log("email type is ", emailType);
 
         // Ensure environment variables are set
         if (!process.env.mail_user || !process.env.mail_pass || !process.env.mail_host) {
@@ -24,12 +25,12 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
         // Create Nodemailer transport
         const transport = nodemailer.createTransport({
             // host: process.env.mail_host,
-            host:"smtp.zeptomail.in",
+            host: "smtp.zeptomail.in",
             port: 587,
             auth: {
 
-                user:process.env.mail_user,
-                pass:process.env.mail_pass,
+                user: process.env.mail_user,
+                pass: process.env.mail_pass,
 
             },
         });
@@ -61,8 +62,25 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
                 htmlContent = userVerificationTemplate(fullname);
                 break;
 
+            case "candidate-forgot-password":
+                console.log("frontens url", process.env.frontend_url);
+                console.log("Handling reset password email");
+                findUser = await HiringCandidate.findById(userId);
+                if (!findUser) throw new Error("User not found for password reset.");
+
+                tokenData = generateResetPasswordToken();
+                token = tokenData.token;
+                tokenExpires = tokenData.tokenExpires;
+
+                findUser.resetPasswordToken = token;
+                findUser.resetPasswordTokenExpires = tokenExpires;
+                await findUser.save();
+
+                htmlContent = resetPasswordTemplate(userId); // Use reset password template
+                break;
+
             case "resetPassword":
-                console.log("frontens url",process.env.frontend_url);
+                console.log("frontens url", process.env.frontend_url);
                 console.log("Handling reset password email");
                 findUser = await User.findById(userId);
                 if (!findUser) throw new Error("User not found for password reset.");
@@ -85,7 +103,7 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
 
             case "offer-release":
                 console.log("Handling offer release email");
-                htmlContent = offerLetterTemplate(candidateName,companyName,jobTitle,offerLetterLink,joiningDate,expiryDate);
+                htmlContent = offerLetterTemplate(candidateName, companyName, jobTitle, offerLetterLink, joiningDate, expiryDate);
                 break;
 
             default:
@@ -102,7 +120,7 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
             subject: `${subject} - Talent ID`,
             html: htmlContent,
         };
-        
+
         // Dynamically add attachments if both files exist
         const attachments = [];
         if (offerLetterLink) {
@@ -111,12 +129,12 @@ export async function sendMail(email, userId = null, subject, emailType, fullnam
                 path: offerLetterLink,
             });
         }
-        
+
         // Add attachments only if there are any
         if (attachments.length > 0) {
             mailOptions.attachments = attachments;
         }
-        
+
 
         // Send email
         const mailResponse = await transport.sendMail(mailOptions);
