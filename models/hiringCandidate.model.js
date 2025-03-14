@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import { hiringCandidateStatus } from "../utils/data.js";
 
+
 const hiringCandidateSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true },

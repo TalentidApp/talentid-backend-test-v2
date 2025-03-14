@@ -76,10 +76,26 @@ const verifyUserEmail = async (req, res) => {
 // signup the user 
 
 const signupUser = async (req, res) => {
+
     console.log("Inside signupUser");
 
     try {
-        const { fullname, email, phone, company, role, password } = req.body;
+        const { fullname, email, phone, company, role, password,captchaValue } = req.body;
+
+        let formData = new FormData();
+        formData.append('secret', process.env.SECRET_KEY);
+        formData.append('response', captchaValue);
+
+        const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+        const result = await fetch(url, {
+            body: formData,
+            method: 'POST',
+        });
+        const challengeSucceeded = (await result.json()).success;
+
+        if (!challengeSucceeded) {
+            return res.status(403).json({ message: "Invalid reCAPTCHA token" });
+        }
 
         // Check for missing fields
         if (!fullname || !email || !phone || !company || !role || !password) {
@@ -156,7 +172,24 @@ const signupUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, captchaValue } = req.body;
+
+        console.log(captchaValue);
+
+        let formData = new FormData();
+        formData.append('secret', process.env.SECRET_KEY);
+        formData.append('response', captchaValue);
+
+        const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+        const result = await fetch(url, {
+            body: formData,
+            method: 'POST',
+        });
+        const challengeSucceeded = (await result.json()).success;
+
+        if (!challengeSucceeded) {
+            return res.status(403).json({ message: "Invalid reCAPTCHA token" });
+        }
 
         // Check if email or password are missing
         if (!email || !password) {
@@ -263,7 +296,7 @@ const resetPassword = async (req, res) => {
 
         console.log("reset pass ke andar ");
 
-        const { password, confirmPasswordValue} = req.body;
+        const { password, confirmPasswordValue } = req.body;
 
         let userId = req.user.id;
 

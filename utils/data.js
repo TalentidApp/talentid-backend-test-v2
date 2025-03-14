@@ -14,7 +14,7 @@ export const statusEnum = {
 //     OTHERS: "Others",
 // };
 
-export const queryOptionsEnum = {"Pricing Query":"Pricing Query", "Partnership issues":"Partnership issues", "Affiliate program":"Affiliate program", "Integration partnership":"Integration partnership", "Book a demo":"Book a demo", "Others":"Others"}
+export const queryOptionsEnum = { "Pricing Query": "Pricing Query", "Partnership issues": "Partnership issues", "Affiliate program": "Affiliate program", "Integration partnership": "Integration partnership", "Book a demo": "Book a demo", "Others": "Others" }
 
 
 import { v4 as uuidv4 } from 'uuid';
@@ -40,7 +40,7 @@ export const paymentStatusEnum = {
 export const randomStringGenerator = (length) => {
 
     return uuidv4().replace(/-/g, '').slice(0, length);
-  
+
 };
 
 export function generateResetPasswordToken() {
@@ -53,24 +53,24 @@ export function generateResetPasswordToken() {
 export function getDateDifference(inputDate) {
     const currentDate = new Date(); // Current date
     const givenDate = new Date(inputDate); // Convert input to Date object
-  
+
     // Calculate the difference in milliseconds
     const differenceInMilliseconds = currentDate - givenDate;
-  
+
     // Convert milliseconds to days
     const differenceInDays = Math.floor(differenceInMilliseconds / (1000 * 60 * 60 * 24));
 
     console.log("diff in days ", differenceInDays);
 
-    if(differenceInDays >360){
+    if (differenceInDays > 360) {
 
         return false;
     }
-  
+
     return true;
 }
-  
-  
+
+
 // /user_data`
 
 export const allCompaniesEndpoint = [
@@ -85,7 +85,17 @@ export const allCompaniesEndpoint = [
 
 export const hiringCandidateStatus = {
 
-    "active":"Active",
-    "inactive":"Inactive"
+    "active": "Active",
+    "inactive": "Inactive"
 }
+
+
+export const signing_status = {
+
+    "requested": "requested",
+    "signed": "signed",
+    "expired": "expired",
+    "rejected": "rejected"
+}
+
 

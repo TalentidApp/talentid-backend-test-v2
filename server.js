@@ -9,6 +9,10 @@ import fileUpload from "express-fileupload";
 
 import path from "path";
 
+import bodyParser from "body-parser";
+
+import axios from "axios";
+
 
 
 
@@ -23,6 +27,8 @@ import oipRoutes from "./routes/oip.routes.js";
 
 import offerRoutes from "./routes/offer.route.js";
 
+import candidateRoutes from "./routes/candidate.route.js";
+
 
 dotenv.config();
 
@@ -35,6 +41,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+app.use(bodyParser.json({ limit: "50mb" })); // Adjust as needed
 app.use(express.json());
 app.use(express.urlencoded({ extended: true })); // Parses URL-encoded data
 
@@ -42,7 +49,7 @@ app.use(cookieParser());
 app.use(
   cors({
 
-    origin: "http://localhost:5173", // ✅ Set frontend URL explicitly
+    origin: ["http://localhost:5173","http://localhost:3000"], // ✅ Set frontend URL explicitly
     credentials: true, // ✅ Required for cookies
   })
 );
@@ -62,6 +69,12 @@ app.use(fileUpload({
 }));
 
 
+app.use((req, res, next) => {
+  res.setHeader("ngrok-skip-browser-warning", "true");
+  next();
+});
+
+
 
 // Routes
 app.use("/api/users", userRoutes);
@@ -75,9 +88,14 @@ app.use("/api/user",oipRoutes);
 
 app.use("/api/offer",offerRoutes);
 
+// fetch All Candidate 
+
+app.use("/api/candidate",candidateRoutes)
+
 app.get("/", (req, res) => {
   res.send("Welcome to Talent ID API");
 });
+
 
 // Start the server
 app.listen(PORT, () => {

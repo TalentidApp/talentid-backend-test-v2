@@ -7,6 +7,11 @@ import cloudinary from '../config/cloudinary.js';
 
 import mongoose from "mongoose";
 
+
+
+
+
+
 const createOffer = async (req, res) => {
 
     const session = await mongoose.startSession(); // Start a transaction session
@@ -21,10 +26,13 @@ const createOffer = async (req, res) => {
             candidateName,
             candidatePhoneNo,
             companyName,
-            offerLetterStatus
+            offerLetterStatus,
+            digioReqBody
         } = req.body;
 
         const hrId = req.user.id;
+
+        console.log(digioReqBody);
 
         // Ensure required fields are present
 
@@ -65,6 +73,10 @@ const createOffer = async (req, res) => {
             }
         }
 
+        // we have to upload the document to the digio and get the url 
+
+        const result = await uploadDocumentToDigio(digioReqBody);
+
         // Create Offer
         const newOffer = new Offer({
             hr: hrId,
@@ -74,6 +86,13 @@ const createOffer = async (req, res) => {
             joiningDate,
             offerLetterStatus,
             expirationDate: expiryDate,
+            // authenticationUrl:"", // 
+            // digioDocumentId:"", //
+            // signingPartyEmail:"",
+            signingStatus:"requested",
+            signingRequestedOn: new Date(),
+            signingExpiresOn: new Date(new Date().getTime() + 60 * 60 * 1000 * 24 * 30), // 30 days from now
+
         });
 
         await newOffer.save({ session });
