@@ -8,7 +8,7 @@ import jwt from "jsonwebtoken";
 
 import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 
-import axios from 'axios'; 
+import axios from 'axios';
 
 import AdditionalDetails from "../models/additionalDetails.model.js";
 
@@ -21,64 +21,71 @@ import Candidate from "../models/candidate.model.js";
 import { emailType, getDateDifference } from "../utils/data.js";
 
 import { allCompaniesEndpoint } from "../utils/data.js";
+import Offer from "../models/offer.model.js";
 
 
-
-// Utility function to handle API requests
 
 const fetchAppliedCompaniesFromScreenit = async (email, token) => {
-
-  console.log("scrneet ke andar ")
-  const response = await axios.post(
-    `${process.env.base_company_url}/user_data`,
-    {
-      user_email: process.env.secretEmail,
-      candidate_email: email,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
-
-  console.log("response ka data ",response.data);
-
-  if (!response.data.success || !response.data.profile?.length) return [];
-
-  // Process profile data
-  return response.data.profile.map((data) => ({
-    companyName: data?.orgname,
-    applicantName: data?.candidate_name || "",
-    appliedAt: data?.date,
-    jobTitle: data?.jobtitle,
-    applicationStatus: `${data?.applicationstatus == "Hire"? "Selected":"Rejected"}`,
-    currentStatus: `${data?.applicationstatus == "Incomplete" ? "Pending" : "Selected"}`,
-    currentRound: data?.roundname,
-    rounds: [
+  try {
+    console.log("Fetching data from Screenit...");
+    const response = await axios.post(
+      `${process.env.base_company_url}/user_data`,
       {
+        user_email: process.env.secretEmail,
+        candidate_email: email,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    console.log("Screenit response:", response.data);
+    if (!response.data.success || !response.data.profile?.length) return [];
+
+    return response.data.profile.map((data) => ({
+      companyName: data?.orgname,
+      applicantName: data?.candidate_name || "",
+      appliedAt: data?.date,
+      jobTitle: data?.jobtitle,
+      applicationStatus: data?.applicationstatus === "Hire" ? "Selected" : "Rejected",
+      currentStatus: data?.applicationstatus === "Incomplete" ? "Pending" : "Selected",
+      currentRound: data?.roundname,
+      rounds: [{
         roundName: data?.roundname,
         date: data?.date,
-        status: `${data?.applicationstatus == "Incomplete" ? "Pending" : "Selected"}`,
-      },
-    ],
-  }));
+        status: data?.applicationstatus === "Incomplete" ? "Pending" : "Selected",
+      }],
+    }));
+  } catch (error) {
+    console.error("Error fetching data from Screenit:", error);
+    return [];
+  }
 };
 
-
-
-
 const fetchAppliedCompaniesFromDummyBackend = async (email) => {
+  try {
+    console.log("Fetching data from Dummy Backend...");
+    const response = await axios.get(`${process.env.dummyBackendCompanyUrl}/${email}`);
+    console.log("Dummy Backend response:", response.data);
+    return response?.data?.data?.appliedCompanies || [];
+  } catch (error) {
+    console.error("Error fetching data from Dummy Backend:", error);
+    return [];
+  }
+};
 
-  console.log("dummy ke andar ");
-
-  const response = await axios.get(`${process.env.dummyBackendCompanyUrl}/${email}`);
-
-  console.log("dummy ke andar response",response.data);
-
-  if (!response?.data?.data?.appliedCompanies) return [];
-
-  return response.data.data.appliedCompanies;
+const fetchSignedOfferLetter = async (email) => {
+  try {
+    const offers = await Offer.find({}).populate('candidate').populate('hr');
+    const userData = offers.filter((data) => data.candidate.email === email);
+    console.log("Filtered user data:", userData);
+    return userData;
+  } catch (error) {
+    console.error("Error fetching user data from our platform:", error);
+    return [];
+  }
 };
 
 
@@ -90,147 +97,73 @@ const fetchUserDataFromCompanies = async (email, token) => {
       fetchAppliedCompaniesFromDummyBackend(email),
     ]);
 
-    // Combine data from both sources
     return [...screenitData, ...dummyData];
   } catch (error) {
     console.error("Error fetching user data from companies:", error);
     throw new Error("Failed to fetch user data");
   }
-
-  finally {
-
-
-    try{
-
-      await Promise.all([
-  
-        allCompaniesEndpoint.map(async (endpointUrl) => {
-  
-          const existingCounter = await Counter.findOne({ endpoint: endpointUrl });
-  
-          if (!existingCounter) {
-            console.log("Counter does not exist, creating a new one...");
-  
-            // Create and save a new counter
-            const newCounter = new Counter({
-              endpoint: endpointUrl,
-              count: 1,
-            });
-            await newCounter.save();
-          } else {
-            console.log("Counter exists, incrementing count...");
-            // Increment the counter and save
-            existingCounter.count += 1;
-            await existingCounter.save();
-          }
-  
-        })
-  
-      ])
-
-    }
-
-    catch(error){
-
-      console.log("Error in updating counter : ", error);
-
-      throw new Error ("error occur in update the counter");
-
-    }
-
-  }
 };
 
-
-
-// Filter out candidates with outdated application data
 const filterCandidateData = (companiesData) =>
   companiesData.filter((company) => getDateDifference(company.appliedAt));
 
-
-// Main controller
 const searchUserInfo = async (req, res) => {
   try {
-
-    console.log("user id is ",req.user.id);
-
-    let userId = req.user.id;
-
-    const { email} = req.body;
+    console.log("User ID:", req.user.id);
+    const { email } = req.body;
+    const userId = req.user.id;
 
     if (!email || !userId) {
       return res.status(400).json({ message: "Both email and userId are required" });
     }
 
-    // Validate the user initiating the search
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user.isVerified) return res.status(401).json({ message: "User is not verified" });
+    if (user.credits <= 0) return res.status(403).json({ message: "Insufficient credits" });
 
-    const isUserFound = await User.findById(userId);
-    if (!isUserFound) return res.status(404).json({ message: "User not found" });
-    if (!isUserFound.isVerified) return res.status(401).json({ message: "User is not verified" });
-    if (isUserFound.credits <= 0) return res.status(403).json({ message: "Insufficient credits" });
-
-    // Get authenticated admin user
     const authenticatedUser = await User.findOne({ email: process.env.secretEmail });
-    if (!authenticatedUser) {
-      return res.status(404).json({ message: "Authenticated user not found" });
-    }
+    if (!authenticatedUser) return res.status(404).json({ message: "Authenticated user not found" });
 
-    // Fetch data from companies
+    let allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
+    console.log("Fetched company data:", allAppliedCompaniesData);
 
-    var allAppliedCompaniesData;
+    // ftech data from the companies to whom user signed an offer letter with them 
 
-    try{
+    const signedOfferData = await fetchSignedOfferLetter(email);
+    console.log("Signed offer data:", signedOfferData);
 
-      console.log("going to fetch the data ")
+    user.credits -= 1;
+    await user.save();
 
-       allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
-
-       console.log("all comapnies fetched data ",allAppliedCompaniesData);
-
-       isUserFound.credits -= 1;
-
-       await isUserFound.save();
-
-    }catch(error){
-
-      return res.status(500).json({
-
-        message:"Error fetching the companies data ",
-        data : null,
-        error:null
-
-      })
-
-    }
-
-    // Filter outdated data
     const filteredAppliedCompanies = filterCandidateData(allAppliedCompaniesData);
-    if (filteredAppliedCompanies.length === 0) {
 
+    if (filteredAppliedCompanies.length === 0 && signedOfferData.length === 0) {
       return res.status(404).json({ message: "No data found for this email" });
+    }
+
+    if(filteredAppliedCompanies.length === 0 && signedOfferData.length > 0) {
+
       
     }
 
-    // Save the candidate's data
-    const candidate = await Candidate.create({
-      email,
-      appliedCompanies: filteredAppliedCompanies,
-    });
 
-    // Update search history for the user
-    isUserFound.searchHistory.push({ _id: candidate._id });
-    await isUserFound.save();
 
-    // Respond with the fetched data
+    const candidate = await Candidate.create({ email, appliedCompanies: filteredAppliedCompanies });
+    user.searchHistory.push({ _id: candidate._id });
+    await user.save();
+
     res.status(200).json({
       message: "User data fetched successfully",
       data: filteredAppliedCompanies,
+      signedOfferData: signedOfferData.length
     });
   } catch (error) {
     console.error("Error in searchUserInfo:", error.message);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
 
 
 
@@ -541,7 +474,7 @@ const fetchAllusers = async (req, res) => {
 
 const deleteUserAccount = async (req, res) => {
   try {
-    
+
     const id = req.user.id;
 
     // Check if ID is provided
@@ -594,16 +527,16 @@ const deleteUserAccount = async (req, res) => {
 
 // now i have to start the engagement server 
 
-const startEngagement = async(req,res)=>{
+const startEngagement = async (req, res) => {
 
-  try{
+  try {
 
 
     // 1. it should difference bw the offer date and the joining date 
     // 2. you should have send atleast five skills of that candidate 
     // 3. now we have to send the skills to the openAI in order to generate questions but the number of questions depends on diff bw thw offer and joining date
 
-  }catch(error){
+  } catch (error) {
 
     console.error("error in startEngagement", error.message);
 
