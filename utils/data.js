@@ -110,6 +110,11 @@ export const user_role={
 
 }
 
+export const todos_status ={
+
+    'pending':"Pending",
+    'completed':"Completed",
+}
 
 
 export const company_size_value ={

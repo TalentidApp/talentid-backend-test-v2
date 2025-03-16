@@ -23,9 +23,9 @@ async function getAllRecruiters(req, res) {
 
 
 
-async function getAllCandidates(req,res){
+async function getAllCandidates(req, res) {
 
-    try{
+    try {
 
         const userData = await HiringCandidate.find({});
 
@@ -34,12 +34,66 @@ async function getAllCandidates(req,res){
             message: "All Candidates fetched successfully"
         });
 
-    }catch(error){
+    } catch (error) {
 
         console.log(error)
-        return res.status(500).json({message:"Internal Server Error"})
+        return res.status(500).json({ message: "Internal Server Error" })
     }
 }
 
-export { getAllRecruiters,getAllCandidates };
+
+async function ftechAllAdmin(req, res) {
+
+    try {
+
+        const userData = await User.find(
+            { role: { $in: [user_role.Sub_Admin, user_role.Super_Admin] } }
+        ).select("fullname email role password");
+
+
+        return res.status(200).json({
+            data: userData,
+            message: "All Admin fetched successfully"
+        });
+
+    } catch (error) {
+
+        console.log(error)
+        return res.status(500).json({ message: error.message })
+    }
+
+}
+
+
+async function createNewAdmin(req, res) {
+
+    try {
+
+        const { fullname, email, password, role } = req.body;
+
+        const user = new User({
+            fullname,
+            email,
+            password,
+            role,
+            company:"Talent ID"
+        });
+
+        await user.save();
+
+        return res.status(200).json({
+            message: "Admin created successfully",
+            data:user
+        });
+
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: error.message })
+
+    }
+}
+
+
+
+export { getAllRecruiters, getAllCandidates, ftechAllAdmin,createNewAdmin };
 
