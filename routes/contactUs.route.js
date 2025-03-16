@@ -1,5 +1,7 @@
 
-import express from "express"
+import express from "express";
+
+import protectRoute from "../middlewares/protectRoute.middleware.js";
 
 const router = express.Router();
 
@@ -14,9 +16,9 @@ import {
 
 router.post("/contact-us", createContactUs);
 
-router.get("/getAllContactUsForm",getAllContactUsForm);
+router.get("/getAllContactUsForm",protectRoute,getAllContactUsForm);
 
-router.post("/updateContactUsStatus",updateContactUsStatus);
+router.post("/updateContactUsStatus",protectRoute,updateContactUsStatus);
 
 
 export default router;

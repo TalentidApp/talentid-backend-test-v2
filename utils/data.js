@@ -99,3 +99,42 @@ export const signing_status = {
 }
 
 
+export const user_role={
+
+    "Super_Admin": "Super_Admin",
+    "Sub_Admin":"Sub_Admin",
+    "User": "User",
+    "Corporate HR": "Corporate HR",
+    "HR Agency": "HR Agency",
+    "Others": "Others"
+
+}
+
+
+
+export const company_size_value ={
+
+    "Startup": "1-10",
+    "Small": "11-50",
+    "Medium": "51-200",
+    "Large": "201+"
+
+}
+
+
+// Bootstrap- free
+// Starter - 799
+// Scale 2499
+//  Enterprise - custom
+
+export const subscriptionPlan_values ={
+
+
+    "Free": "Free",
+    "Starter": "Starter",
+    "Scale": "Scale",
+    "Enterprise": "Enterprise"
+    
+}
+
+

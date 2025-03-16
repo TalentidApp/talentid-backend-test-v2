@@ -107,14 +107,16 @@ const fetchUserDataFromCompanies = async (email, token) => {
 const filterCandidateData = (companiesData) =>
   companiesData.filter((company) => getDateDifference(company.appliedAt));
 
+
+
 const searchUserInfo = async (req, res) => {
   try {
     console.log("User ID:", req.user.id);
     const { email } = req.body;
     const userId = req.user.id;
 
-    if (!email || !userId) {
-      return res.status(400).json({ message: "Both email and userId are required" });
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
     }
 
     const user = await User.findById(userId);
@@ -128,41 +130,45 @@ const searchUserInfo = async (req, res) => {
     let allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
     console.log("Fetched company data:", allAppliedCompaniesData);
 
-    // ftech data from the companies to whom user signed an offer letter with them 
-
+    // Fetch data from the companies to whom the user signed an offer letter with
     const signedOfferData = await fetchSignedOfferLetter(email);
     console.log("Signed offer data:", signedOfferData);
 
+    // Deduct 1 credit
     user.credits -= 1;
     await user.save();
 
     const filteredAppliedCompanies = filterCandidateData(allAppliedCompaniesData);
 
     if (filteredAppliedCompanies.length === 0 && signedOfferData.length === 0) {
+      const newCandidate = await Candidate.create({ email: email });
+      user.searchHistory.push({ _id: newCandidate._id });
+      await user.save();
       return res.status(404).json({ message: "No data found for this email" });
     }
 
-    if(filteredAppliedCompanies.length === 0 && signedOfferData.length > 0) {
+    const candidate = await Candidate.create({
+      email,
+      appliedCompanies: filteredAppliedCompanies,
+    });
 
-      
-    }
-
-
-
-    const candidate = await Candidate.create({ email, appliedCompanies: filteredAppliedCompanies });
     user.searchHistory.push({ _id: candidate._id });
     await user.save();
 
     res.status(200).json({
       message: "User data fetched successfully",
-      data: filteredAppliedCompanies,
-      signedOfferData: signedOfferData.length
+      data: {
+
+        filteredAppliedCompanies,
+        signedOfferData: signedOfferData.length,
+      }
     });
   } catch (error) {
-    console.error("Error in searchUserInfo:", error.message);
+    console.error("Error in searchUserInfo:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
 
 
 
@@ -332,10 +338,6 @@ const getAllApiCountValue = async (req, res) => {
 const getUserHistoryData = async (req, res) => {
 
   try {
-
-    // Extract the userId from the request parameters
-
-    // const { userId } = req.params;
 
     const userId = req.user.id;
 

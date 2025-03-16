@@ -11,6 +11,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import axios from "axios";
+import { user_role } from "../utils/data.js";
 
 // verify user email 
 
@@ -80,7 +81,7 @@ const signupUser = async (req, res) => {
     console.log("Inside signupUser");
 
     try {
-        const { fullname, email, phone, company, role, password,captchaValue } = req.body;
+        const { fullname, email, phone, company, role, password, captchaValue } = req.body;
 
         let formData = new FormData();
         formData.append('secret', process.env.SECRET_KEY);
@@ -174,98 +175,91 @@ const loginUser = async (req, res) => {
     try {
         const { email, password, captchaValue } = req.body;
 
-        console.log(captchaValue);
+        console.log("email ", email, " password ", password, " captchaValue ", captchaValue);
+
+        if (!captchaValue) {
+            return res.status(400).json({ message: "CAPTCHA is required" });
+        }
 
         let formData = new FormData();
-        formData.append('secret', process.env.SECRET_KEY);
-        formData.append('response', captchaValue);
+        formData.append("secret", process.env.SECRET_KEY);
+        formData.append("response", captchaValue);
 
-        const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-        const result = await fetch(url, {
-            body: formData,
-            method: 'POST',
-        });
+        const url = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+        const result = await fetch(url, { body: formData, method: "POST" });
         const challengeSucceeded = (await result.json()).success;
 
         if (!challengeSucceeded) {
             return res.status(403).json({ message: "Invalid reCAPTCHA token" });
         }
 
-        // Check if email or password are missing
         if (!email || !password) {
-            return res.status(400).json({
-                data: null,
-                message: "All fields are required",
-                error: null,
-            });
+            return res.status(400).json({ message: "All fields are required" });
         }
 
-        // Find user by email and populate additional details
         const user = await User.findOne({ email })
             .populate("additionalDetails")
             .populate({ path: "searchHistory" });
+
+        console.log("user find in db ",user)
 
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
         }
 
-        // Check if the user is verified
-        if (!user.isEmailVerified) {
-            return res.status(401).json({
-                message: "User is not verified by email",
-                error: null,
-                data: null,
-            });
-        }
+        // 🛑 If the user is an Admin, compare password as plain text
+        if (user.role === user_role.Super_Admin || user.role === user_role.Sub_Admin) {
 
-        if (!user.isVerified) {
-            return res.status(401).json({
-                message: "User is not verified by admin",
-                error: null,
-                data: null,
-            });
-        }
+            console.log(user);
 
-        // Check if the password is correct
-        const isPasswordCorrect = await bcrypt.compare(password, user.password);
+            console.log("pass",password);
+            if (user.password !== password) {
+                return res.status(400).json({ message: "Invalid admin password" });
+            }
+        } else {
+            // ✅ For non-admin users, check if email & admin verification is completed
+            if (!user.isEmailVerified) {
+                return res.status(401).json({ message: "User is not verified by email" });
+            }
+            if (!user.isVerified) {
+                return res.status(401).json({ message: "User is not verified by admin" });
+            }
 
-        if (!isPasswordCorrect) {
-            return res.status(400).json({ message: "Invalid password" });
+            // 🔒 Check hashed password for regular users
+            const isPasswordCorrect = await bcrypt.compare(password, user.password);
+            if (!isPasswordCorrect) {
+                return res.status(400).json({ message: "Invalid password" });
+            }
         }
 
         // Generate JWT Token
-        const expiresIn = 24 * 60 * 60 * 1000; // 1 day in milliseconds
-        const tokenExpiry = Date.now() + expiresIn; // Calculate expiry time
+        const expiresIn = 24 * 60 * 60 * 1000; // 1 day
+        const tokenExpiry = Date.now() + expiresIn;
         const token = jwt.sign(
             { id: user._id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '1d' } // Token expires in 1 day
+            { expiresIn: "1d" }
         );
 
-        // Set the token as an HTTP-only cookie
-        res.cookie('token', token, {
+        // Set HTTP-only cookie
+        res.cookie("token", token, {
             httpOnly: true,
-            secure: false, // Use true in production with HTTPS
-            sameSite: 'lax', // Or 'none' for cross-origin requests
-            maxAge: expiresIn, // 1 day
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: expiresIn,
         });
 
-        // Generate external token
+        // Fetch external token
         try {
             const data = await axios.get(`${process.env.base_company_url}/generate_token/${email}`);
             user.token = data.data.token;
         } catch (error) {
-            return res.status(500).json({
-                data: null,
-                message: "Error while generating external token",
-                error: error.message,
-            });
+            return res.status(500).json({ message: "Error while generating external token", error: error.message });
         }
 
         await user.save();
 
-        // Respond with user data (without password) and include token expiry time
-        res.status(201).json({
+        res.status(200).json({
             _id: user._id,
             fullname: user.fullname,
             userImage: user.userImage,
@@ -276,8 +270,8 @@ const loginUser = async (req, res) => {
             token: user.token,
             credits: user.credits,
             searchHistory: user.searchHistory,
-            additionalDetails: user.additionalDetails, // Include populated additional details
-            tokenExpiry, // Send token expiry time
+            additionalDetails: user.additionalDetails,
+            tokenExpiry,
             message: "Login successful",
         });
 
@@ -285,6 +279,7 @@ const loginUser = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
 
 
 
