@@ -9,10 +9,12 @@ import {
 
 const router = express.Router();
 
-router.post("/", createNewTodo);   // Create a new todo
-router.get("/", getAllTodos);      // Get all todos
-router.get("/:id", getTodoById);   // Get a single todo by ID
-router.put("/:id", updateTodo);    // Update a todo by ID
-router.delete("/:id", deleteTodo); // Delete a todo by ID
+import protectRoute from "../middlewares/protectRoute.middleware.js";
+
+router.post("/createNewTodo",protectRoute,createNewTodo);   // Create a new todo
+router.get("/getAllTodos",protectRoute,getAllTodos);      // Get all todos
+router.get("/getTodoById/:id",protectRoute,getTodoById);   // Get a single todo by ID
+router.put("/update-todo/:id",protectRoute,updateTodo);    // Update a todo by ID
+router.delete("/getTodoById/:id",protectRoute,deleteTodo); // Delete a todo by ID
 
 export default router;

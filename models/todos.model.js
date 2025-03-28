@@ -1,6 +1,6 @@
 
 import mongoose from "mongoose";
-import { todos_status } from "../utils/data";
+import { todos_status } from "../utils/data.js";
 
 const todosSchema = new mongoose.Schema({
 
@@ -14,11 +14,10 @@ const todosSchema = new mongoose.Schema({
         type:String,
         required:true,
     },
-    status:{
+    isCompleted:{
 
-        type:String,
-        enum:Object.values(todos_status),
-        default:'pending',
+        type:Boolean,
+        default:false,
     }
 
 }

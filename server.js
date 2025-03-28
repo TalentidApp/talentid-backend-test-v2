@@ -31,6 +31,8 @@ import candidateRoutes from "./routes/candidate.route.js";
 
 import adminRoutes from "./routes/admin.route.js";
 
+import todoRoute from "./routes/todo.route.js";
+
 
 dotenv.config();
 
@@ -95,6 +97,8 @@ app.use("/api/offer",offerRoutes);
 app.use("/api/candidate",candidateRoutes);
 
 app.use("/api/admin",adminRoutes);
+
+app.use("/api/todo", todoRoute);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Talent ID API");
