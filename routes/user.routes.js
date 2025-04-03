@@ -7,7 +7,11 @@ import {
   deleteUserAccount,
   updateUserData,
   getAllApiCountValue,
-  getUserCredits
+  getUserCredits,
+  searchCompanies,
+  updateProfile,
+  getProfile,
+  sendInvite
 
 } from "../controllers/user.controllers.js";
 
@@ -20,9 +24,11 @@ import logSearch from "../middlewares/searchHistory.middleware.js";
 
 const router = express.Router();
 
+router.post("/update-user", protectRoute, updateProfile);
 
 router.post("/user-info",protectRoute,searchUserInfo); 
 
+router.post("/invite",protectRoute, sendInvite)
 
 router.get("/fetchAllusers",protectRoute,fetchAllusers);
 
@@ -32,9 +38,12 @@ router.delete("/deleteUserAccount",protectRoute,deleteUserAccount);
 
 router.post("/updateUserData",protectRoute,updateUserData);
 
-router.get("/getAllApiCountValue",protectRoute,getAllApiCountValue);
+router.get("/search-companies", protectRoute, searchCompanies);
 
+router.get("/getAllApiCountValue",protectRoute,getAllApiCountValue);
+router.get("/", protectRoute, getProfile);
 router.get("/getUserCredits",protectRoute,getUserCredits);
+
 
 
 

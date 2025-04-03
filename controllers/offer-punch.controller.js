@@ -8,10 +8,6 @@ import cloudinary from '../config/cloudinary.js';
 import mongoose from "mongoose";
 
 
-
-
-
-
 const createOffer = async (req, res) => {
 
     const session = await mongoose.startSession(); // Start a transaction session

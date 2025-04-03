@@ -95,7 +95,8 @@ export const signing_status = {
     "requested": "requested",
     "signed": "signed",
     "expired": "expired",
-    "rejected": "rejected"
+    "rejected": "rejected",
+    "completed": "completed" 
 }
 
 
@@ -106,7 +107,9 @@ export const user_role={
     "User": "User",
     "Corporate HR": "Corporate HR",
     "HR Agency": "HR Agency",
-    "Others": "Others"
+    "Others": "Others",
+    "Admin":"Admin",
+    "Employee":"Employee"
 
 }
 

@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 import { company_size_value, user_role } from "../utils/data.js";
 import { subscriptionPlan_values } from "../utils/data.js";
 
@@ -15,6 +14,10 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
     password: { type: String, minLength: 8, required: true },
+
+    // New fields for document verification
+    documents: { type: String }, // Array to store Cloudinary URLs of uploaded documents
+    verifiedDocuments: { type: Boolean, default: false }, // Verification status
 
     // Fields that should not exist for Admin
     additionalDetails: {
@@ -40,13 +43,33 @@ const userSchema = new mongoose.Schema(
     searchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
     offerLettersSent: { type: Number, default: 0 },
     OfferReleases: { type: Number, default: 0 },
-
-    companySize: { type: String, enum: Object.values(company_size_value), default: company_size_value.Small },
+    companySize: {
+      type: String,
+      enum: Object.keys(company_size_value),
+      default: "Small"
+    },
     industry: { type: String },
     designation: { type: String },
 
     subscriptionPlan: { type: String, enum: Object.values(subscriptionPlan_values), default: "Free" },
     subscriptionExpiry: { type: Date },
+    teams: [{ type: mongoose.Schema.Types.ObjectId, ref: "Team" }],
+    notificationPreferences: {
+      masterToggle: { type: Boolean, default: true },
+      specificNotifications: [{
+        type: { type: String },
+        emailEnabled: { type: Boolean, default: true }
+      }]
+    },
+    inviteLinks: [{
+      email: { type: String },
+      type: {
+        type: String,
+        enum: ['invite', 'view'],
+        required: true
+      },
+      createdAt: { type: Date, default: Date.now }
+    }],
 
     activityLogs: [{ action: String, timestamp: { type: Date, default: Date.now } }]
   },
@@ -73,6 +96,11 @@ userSchema.pre("save", function (next) {
     this.subscriptionPlan = undefined;
     this.subscriptionExpiry = undefined;
     this.activityLogs = undefined;
+    this.notificationPreferences = undefined;
+    this.teams = undefined;
+    this.inviteLinks = undefined; // Remove inviteLinks for Admin roles
+    this.documents = undefined; // Remove documents for Admin roles
+    this.verifiedDocuments = undefined; // Remove verifiedDocuments for Admin roles
   }
   next();
 });

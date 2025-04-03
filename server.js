@@ -6,15 +6,10 @@ import cookieParser from "cookie-parser";
 import { startCronJob } from "./utils/cronJobs.js";
 
 import fileUpload from "express-fileupload";
-
 import path from "path";
-
 import bodyParser from "body-parser";
-
 import axios from "axios";
-
-
-
+import { fileURLToPath } from 'url';
 
 // Routes
 import paymentRoute from "./routes/payment.route.js";
@@ -24,61 +19,42 @@ import contactUsRoute from "./routes/contactUs.route.js";
 import optOutRoutes from "./routes/optout.route.js";
 import userRoutes from "./routes/user.routes.js";
 import oipRoutes from "./routes/oip.routes.js";
-
+import teamRoutes from './routes/team.route.js';
 import offerRoutes from "./routes/offer.route.js";
-
+import notificationRoute from './routes/notification.route.js';
 import candidateRoutes from "./routes/candidate.route.js";
-
 import adminRoutes from "./routes/admin.route.js";
-
 import todoRoute from "./routes/todo.route.js";
-
 
 dotenv.config();
 
 // Connect to the database
 connectDB();
 
-
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(bodyParser.json({ limit: "50mb" })); // Adjust as needed
+app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.json());
-app.use(express.urlencoded({ extended: true })); // Parses URL-encoded data
-
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(
-  cors({
-
-    origin: ["http://localhost:5173","http://localhost:3000"], // ✅ Set frontend URL explicitly
-    credentials: true, // ✅ Required for cookies
-  })
-);
-
-
-import { fileURLToPath } from 'url';
+app.use(cors({ origin: ["http://localhost:5173","http://localhost:3000"], credentials: true }));
 
 // Define __dirname manually
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-
 app.use(fileUpload({
   useTempFiles: true,
-  tempFileDir: path.join(__dirname, 'tmp'), // Use a 'tmp' folder in your project directory
+  tempFileDir: path.join(__dirname, 'tmp')
 }));
-
 
 app.use((req, res, next) => {
   res.setHeader("ngrok-skip-browser-warning", "true");
   next();
 });
-
-
 
 // Routes
 app.use("/api/users", userRoutes);
@@ -87,28 +63,20 @@ app.use("/api/orders", OrderRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/contactus", contactUsRoute);
 app.use("/api/optout", optOutRoutes);
-
-app.use("/api/user",oipRoutes);
-
-app.use("/api/offer",offerRoutes);
-
-// fetch All Candidate 
-
-app.use("/api/candidate",candidateRoutes);
-
-app.use("/api/admin",adminRoutes);
-
+app.use("/api/user", oipRoutes);
+app.use("/api/offer", offerRoutes);
+app.use("/api/notifications", notificationRoute);
+app.use("/api/candidate", candidateRoutes);
+app.use("/api/team", teamRoutes);
+app.use("/api/admin", adminRoutes);
 app.use("/api/todo", todoRoute);
 
 app.get("/", (req, res) => {
   res.send("Welcome to Talent ID API");
 });
 
-
-// Start the server
 app.listen(PORT, () => {
   console.log(`Server started at http://localhost:${PORT}`);
 });
 
-startCronJob(); // Start the cron job after the server is running
-
+startCronJob();

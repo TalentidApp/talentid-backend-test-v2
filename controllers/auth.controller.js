@@ -1,3 +1,4 @@
+import UploadImageToCloudinary from "../utils/uploadImageToCloudinary.js";
 
 
 import User from "../models/user.model.js";
@@ -11,7 +12,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
 import axios from "axios";
-import { user_role } from "../utils/data.js";
+import { company_size_value, user_role } from "../utils/data.js";
 
 // verify user email 
 
@@ -77,28 +78,27 @@ const verifyUserEmail = async (req, res) => {
 // signup the user 
 
 const signupUser = async (req, res) => {
-
     console.log("Inside signupUser");
 
     try {
         const { fullname, email, phone, company, role, password, captchaValue } = req.body;
 
         let formData = new FormData();
-        formData.append('secret', process.env.SECRET_KEY);
-        formData.append('response', captchaValue);
+        formData.append("secret", process.env.SECRET_KEY);
+        formData.append("response", captchaValue);
 
-        const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-        const result = await fetch(url, {
-            body: formData,
-            method: 'POST',
-        });
-        const challengeSucceeded = (await result.json()).success;
+        // Uncomment this if you want to enable CAPTCHA verification
+        // const url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+        // const result = await fetch(url, {
+        //     body: formData,
+        //     method: 'POST',
+        // });
+        // const challengeSucceeded = (await result.json()).success;
 
-        if (!challengeSucceeded) {
-            return res.status(403).json({ message: "Invalid reCAPTCHA token" });
-        }
+        // if (!challengeSucceeded) {
+        //     return res.status(403).json({ message: "Invalid reCAPTCHA token" });
+        // }
 
-        // Check for missing fields
         if (!fullname || !email || !phone || !company || !role || !password) {
             return res.status(400).json({
                 data: null,
@@ -106,16 +106,13 @@ const signupUser = async (req, res) => {
             });
         }
 
-        // Check if the user already exists
         const user = await User.findOne({ email });
         if (user) {
             return res.status(400).json({ message: "User already exists" });
         }
 
-        // Hash password
         const hashedPassword = await bcrypt.hash(password, 6);
 
-        // Create additional details
         const createAdditionalDetails = await AdditionalDetails.create({
             gender: null,
             address: null,
@@ -125,7 +122,6 @@ const signupUser = async (req, res) => {
             bio: null,
         });
 
-        // Create new user
         const newUser = new User({
             fullname,
             email,
@@ -139,37 +135,79 @@ const signupUser = async (req, res) => {
 
         await newUser.save();
 
-        // Send verification email
-        try {
-            await sendMail(email, newUser._id, "Email Verification", "verifyEmail", newUser.fullname);
-        } catch (error) {
-            console.error("Error sending verification email:", error.message);
-            return res.status(500).json({
-                success: false,
-                data: newUser,
-                message: "Some error occurred while sending mail",
-                error: error.message,
-            });
-        }
-
-        // Respond with success
         return res.status(200).json({
             success: true,
-            data: newUser,
+            data: { userId: newUser._id },
             message: "User registered successfully",
             error: null,
         });
-
     } catch (error) {
         console.error("Error in signupUser:", error.message);
         return res.status(500).json({ message: error.message });
     }
 };
 
+export const uploadDocuments = async (req, res) => {
+    console.log("Inside uploadDocuments");
+    console.log("Request body:", req.body);
 
+    try {
+        const { userId, document } = req.body;
 
+        if (!document) {
+            return res.status(400).json({
+                success: false,
+                message: "No document provided in request body",
+            });
+        }
 
-// login the user 
+        let buffer;
+        if (document.startsWith('data:')) {
+            const base64Data = document.split(',')[1];
+            buffer = Buffer.from(base64Data, 'base64');
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid document format. Expected base64 data URI.",
+            });
+        }
+
+        const uploadResult = await UploadImageToCloudinary(
+            buffer,
+            'signed_offer_letters', // Folder
+            undefined,
+            undefined  // Quality
+        );
+
+        const updatedUser = await User.findByIdAndUpdate(
+            userId,
+            { documents: uploadResult.secure_url }, // Store the Cloudinary URL
+            { new: true, runValidators: true } // Return updated doc, run schema validators
+        );
+
+        if (!updatedUser) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Document uploaded successfully",
+            url: uploadResult.secure_url,
+            public_id: uploadResult.public_id,
+        });
+    } catch (error) {
+        console.error('Error in uploadDocuments:', error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Error uploading document to Cloudinary",
+            error: error.message,
+        });
+    }
+
+};
 
 const loginUser = async (req, res) => {
     try {
@@ -177,21 +215,31 @@ const loginUser = async (req, res) => {
 
         console.log("email ", email, " password ", password, " captchaValue ", captchaValue);
 
-        if (!captchaValue) {
-            return res.status(400).json({ message: "CAPTCHA is required" });
-        }
+        // if (!captchaValue) {
+        //     return res.status(400).json({ message: "CAPTCHA is required" });
+        // }
 
-        let formData = new FormData();
-        formData.append("secret", process.env.SECRET_KEY);
-        formData.append("response", captchaValue);
+        // let formData = new URLSearchParams(); // Use URLSearchParams instead of FormData
+        // formData.append("secret", process.env.SECRET_KEY);
+        // formData.append("response", captchaValue);
 
-        const url = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-        const result = await fetch(url, { body: formData, method: "POST" });
-        const challengeSucceeded = (await result.json()).success;
+        // const url = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+        // const result = await fetch(url, {
+        //     method: "POST",
+        //     headers: {
+        //         "Content-Type": "application/x-www-form-urlencoded", // Set header
+        //     },
+        //     body: formData
+        // });
 
-        if (!challengeSucceeded) {
-            return res.status(403).json({ message: "Invalid reCAPTCHA token" });
-        }
+        // const challengeSucceeded = (await result.json()).success;
+
+        // console.log(result, challengeSucceeded);
+
+
+        // if (!challengeSucceeded) {
+        //     return res.status(403).json({ message: "Invalid reCAPTCHA token" });
+        // }
 
         if (!email || !password) {
             return res.status(400).json({ message: "All fields are required" });
@@ -201,10 +249,16 @@ const loginUser = async (req, res) => {
             .populate("additionalDetails")
             .populate({ path: "searchHistory" });
 
-        console.log("user find in db ",user)
+        console.log("user find in db ", user)
 
         if (!user) {
             return res.status(400).json({ message: "Invalid email or password" });
+        }
+        console.log(user.verifiedDocuments )
+        if (user && !user.verifiedDocuments) {
+            console.log('verifying documents')
+            res.status(202).json({ 'message': 'verifying documents' });
+            return;
         }
 
         // 🛑 If the user is an Admin, compare password as plain text
@@ -212,7 +266,7 @@ const loginUser = async (req, res) => {
 
             console.log(user);
 
-            console.log("pass",password);
+            console.log("pass", password);
             if (user.password !== password) {
                 return res.status(400).json({ message: "Invalid admin password" });
             }

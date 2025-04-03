@@ -18,10 +18,11 @@ import Counter from "../models/count.model.js";
 
 import Candidate from "../models/candidate.model.js";
 
-import { emailType, getDateDifference } from "../utils/data.js";
+import { emailType, getDateDifference, user_role } from "../utils/data.js";
 
 import { allCompaniesEndpoint } from "../utils/data.js";
 import Offer from "../models/offer.model.js";
+import HiringCandidate from "../models/hiringCandidate.model.js";
 
 
 
@@ -127,55 +128,54 @@ const searchUserInfo = async (req, res) => {
     const authenticatedUser = await User.findOne({ email: process.env.secretEmail });
     if (!authenticatedUser) return res.status(404).json({ message: "Authenticated user not found" });
 
-    let allAppliedCompaniesData = await fetchUserDataFromCompanies(email, authenticatedUser.token);
-    console.log("Fetched company data:", allAppliedCompaniesData);
+    // Fetch all data in parallel
+    const [allAppliedCompaniesData, signedOfferData, candidateData, hiringCandidateData] = await Promise.all([
+      fetchUserDataFromCompanies(email, authenticatedUser.token),
+      fetchSignedOfferLetter(email),
+      Candidate.findOne({ email }).populate("appliedCompanies"),
+      HiringCandidate.findOne({ email })
+    ]);
 
-    // Fetch data from the companies to whom the user signed an offer letter with
-    const signedOfferData = await fetchSignedOfferLetter(email);
-    console.log("Signed offer data:", signedOfferData);
+    let offersData = [];
+    if (hiringCandidateData) {
+      offersData = await Offer.find({ email });
+    }
 
-    // Deduct 1 credit
     user.credits -= 1;
+    await user.save();
+
+    user.inviteLinks.push({ email, type: 'view' });
     await user.save();
 
     const filteredAppliedCompanies = filterCandidateData(allAppliedCompaniesData);
 
-    if (filteredAppliedCompanies.length === 0 && signedOfferData.length === 0) {
-      const newCandidate = await Candidate.create({ email: email });
-      user.searchHistory.push({ _id: newCandidate._id });
-      await user.save();
-      return res.status(404).json({ message: "No data found for this email" });
+    if (!candidateData && !hiringCandidateData && allAppliedCompaniesData.length === 0 && signedOfferData.length === 0) {
+      return res.status(404).json({ message: "No data found for this email.Invite them" });
     }
 
-    const candidate = await Candidate.create({
-      email,
-      appliedCompanies: filteredAppliedCompanies,
-    });
-
-    user.searchHistory.push({ _id: candidate._id });
-    await user.save();
+    const recordToAdd = candidateData || hiringCandidateData;
+    if (recordToAdd) {
+      user.searchHistory.push({ _id: recordToAdd._id });
+      await user.save();
+    }
 
     res.status(200).json({
       message: "User data fetched successfully",
       data: {
-
         filteredAppliedCompanies,
-        signedOfferData: signedOfferData.length,
-      }
+        signedOfferData,
+        candidateData,
+        hiringCandidateData: hiringCandidateData ? {
+          ...hiringCandidateData.toObject(),
+          allOfferData: offersData
+        } : null,
+      },
     });
   } catch (error) {
     console.error("Error in searchUserInfo:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
-
-
-
-
-
-
-
-
 
 const updateUserData = async (req, res) => {
   console.log("Inside updateUserData");
@@ -526,6 +526,27 @@ const deleteUserAccount = async (req, res) => {
 };
 
 
+const searchCompanies = async (req, res) => {
+  try {
+    // Fetch all users and extract unique company names
+    const users = await User.find({}).select('company');
+    const companyNames = [...new Set(users.map(user => user.company).filter(Boolean))]; // Remove duplicates and falsy values
+
+    if (!companyNames.length) {
+      return res.status(404).json({ message: "No companies found" });
+    }
+
+    const companies = companyNames.map(name => ({ companyName: name }));
+
+    res.status(200).json({
+      message: "Companies fetched successfully",
+      data: companies,
+    });
+  } catch (error) {
+    console.error("Error in searchCompanies:", error);
+    res.status(500).json({ message: "Internal server error", error: error.message });
+  }
+};
 
 // now i have to start the engagement server 
 
@@ -546,7 +567,153 @@ const startEngagement = async (req, res) => {
   }
 }
 
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const {
+      mobileNumber,
+      company,
+      website,
+      state,
+      bio,
+      employees
+    } = req.body;
 
+    console.log('rfr')
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // Update user fields
+    user.phone = mobileNumber || user.phone;
+    user.company = company || user.company;
+
+    // For non-admin users, update additional details
+    if (![user_role.Sub_Admin, user_role.Super_Admin].includes(user.role)) {
+      // Update or create additional details
+      let additionalDetails = await AdditionalDetails.findOne({ _id: user.additionalDetails });
+
+      if (!additionalDetails) {
+        additionalDetails = new AdditionalDetails({
+          state,
+          bio,
+          numberOfEmployees: employees,
+          companyWebsite: website
+        });
+        await additionalDetails.save();
+        user.additionalDetails = additionalDetails._id;
+      } else {
+        additionalDetails.state = state || additionalDetails.state;
+        additionalDetails.bio = bio || additionalDetails.bio;
+        additionalDetails.numberOfEmployees = employees || additionalDetails.numberOfEmployees;
+        additionalDetails.companyWebsite = website || additionalDetails.companyWebsite;
+        await additionalDetails.save();
+      }
+    }
+
+    await user.save();
+
+    // Populate additional details for response
+    const updatedUser = await User.findById(userId).populate('additionalDetails');
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: updatedUser
+    });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+export const getProfile = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId)
+      .populate('additionalDetails')
+      .select('-password -token -resetPasswordToken -resetPasswordTokenExpires');
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      user: {
+        ...user.toObject(),
+        additionalDetails: user.additionalDetails || null,
+        inviteLinks: user.inviteLinks || []
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message
+    });
+  }
+};
+
+const sendInvite = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const userId = req.user?.id; // Assuming you have user authentication middleware providing the user ID
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email address" });
+    }
+
+    // Check if email already exists in inviteLinks
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    // if (user.inviteLinks.includes(email)) {
+    //   return res.status(400).json({ success: false, message: "This email has already been invited" });
+    // }
+
+    await sendMail(
+      email,
+      null,
+      "Invitation to Join Talentid.app",
+      "candidate-invite",
+      "Candidate",
+      null,
+      "Candidate",
+      "Talentid.app",
+      null,
+      null,
+      null,
+      null,
+      { signupLink: `${process.env.frontend_url}/signup` }
+    );
+
+    user.inviteLinks.push({ 
+      email: email, 
+      type: 'invite' 
+    });
+    await user.save();
+
+    res.status(200).json({ success: true, message: "Invitation email sent successfully" });
+  } catch (error) {
+    console.error("Error sending invite email:", error);
+    res.status(500).json({ success: false, message: "Failed to send invitation email", error: error.message });
+  }
+};
 
 
 export {
@@ -558,6 +725,8 @@ export {
   getUserHistoryData,
   fetchAllusers,
   getAllApiCountValue,
+  searchCompanies,
+  sendInvite
 };
 
 

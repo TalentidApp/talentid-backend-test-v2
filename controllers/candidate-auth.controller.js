@@ -1,211 +1,265 @@
-
 import HiringCandidate from "../models/hiringCandidate.model.js";
-
 import bcrypt from "bcryptjs";
-
 import jwt from "jsonwebtoken";
-
 import { sendMail } from "../utils/mail.js";
 
+const generateOTP = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
+};
+
 const candidateLogin = async (req, res) => {
-
     try {
-
         const { email, password } = req.body;
 
         if (!email || !password) {
-
             return res.status(400).json({ message: "All fields are required" });
-
         }
 
-        // check first email is exists or not 
-
-        const isCandidateExists = await HiringCandidate.findOne({ email: email }).populate("offers")
-
+        const isCandidateExists = await HiringCandidate.findOne({ email }).populate("offers");
         if (!isCandidateExists) {
-
             return res.status(404).json({ message: "Candidate not found" });
-
         }
 
-        // compare the password first 
-
-
-        const isPasswordMatch = bcrypt.compare(password, isCandidateExists.password);
-
+        const isPasswordMatch = await bcrypt.compare(password, isCandidateExists.password);
         if (!isPasswordMatch) {
-
-            return res.status(401).json({ message: "Password does not match " });
-
+            return res.status(401).json({ message: "Password does not match" });
         }
-
-        // if the password match 
-
-        // generate the token
-
 
         const payloadData = {
             id: isCandidateExists._id,
             email: isCandidateExists.email,
-            role: isCandidateExists.role
-        }
+            role: isCandidateExists.role,
+        };
 
-        const token = jwt.sign(payloadData, process.env.JWT_SECRET, { expiresIn: '24h' });
+        const token = jwt.sign(payloadData, process.env.JWT_SECRET, { expiresIn: "24h" });
 
-        // after creating the token return return that token in the cosokies form 
-
-        // Set the token as an HTTP-only cookie
-        res.cookie('token', token, {
+        res.cookie("token", token, {
             httpOnly: true,
-            secure: false, // Use true in production with HTTPS
-            sameSite: 'lax', // Or 'none' for cross-origin requests
-            maxAge: expiresIn, // 1 day
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            maxAge: 24 * 60 * 60 * 1000,
         });
 
+        isCandidateExists.token = token;
 
         return res.status(200).json({
-
             message: "Logged in successfully",
             data: isCandidateExists,
+            token:token,
             error: null,
-        })
-
-
+        });
     } catch (error) {
-
         console.error(error);
-
         return res.status(500).json({ message: "Server Error", error: error.message });
-
     }
-}
+};
 
-
-// forgot password during login 
-
-
-const forgotPassword = async (req, res) => {
-
+const candidateSignup = async (req, res) => {
     try {
-
-        const { password, confirmPasswordValue } = req.body;
-
-        let userId = req.user.id;
-
-        console.log("password ", password, " confirm password ", confirmPasswordValue, " userId ", userId);
-
-        if (!password || !confirmPasswordValue || !userId) {
-
-            return res.status(400).json({
-
-                data: null,
-                message: "Please provide all the required fields",
-                error: null,
-
-            })
+        const { fullName, email, password } = req.body;
+        if (!fullName || !email || !password) {
+            return res.status(400).json({ message: "All fields are required" });
         }
 
-
-        // const user = await User.findById(req.user._id); // cookies are not works 
-
-        const user = await HiringCandidate.findById(userId);
-
-        console.log("user is ", user);
-
-        if (!user) {
-
-            return res.status(404).json({ message: "User not found" });
-
+        const existingCandidate = await HiringCandidate.findOne({ email });
+        if (existingCandidate) {
+            return res.status(400).json({ message: "Email already in use" });
         }
 
-        if (!bcrypt.compare(password, user.password)) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const newCandidate = new HiringCandidate({
+            name: fullName,
+            email,
+            password: hashedPassword,
+        });
 
-            return res.status(404).json({
+        await newCandidate.save();
 
-                message: "password mismatch",
-                data: null,
-                erorr: null,
+        await sendMail(email,null,"Welcome! Your Sign-In to Talent ID Was Successful 🎉","candidate-signup",fullName,null,null,null,null,null,null,null,null)
 
-            })
+        return res.status(201).json({ message: "Candidate registered successfully" });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: "Server Error", error: error.message });
+    }
+};
 
-        }
-
-        const hashedPassword = await bcrypt.hash(confirmPasswordValue, 6);
-
-        user.password = hashedPassword;
-
-        await user.save();
+const candidateLogout = async (req, res) => {
+    try {
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax"
+        });
 
         return res.status(200).json({
-
-            message: "Password updated successfully",
-            data: null,
-            error: null,
-
+            message: "Logged out successfully",
+            error: null
         });
-
     } catch (error) {
-
+        console.error(error);
         return res.status(500).json({
-
-            data: null,
-            message: error.message
-
+            message: "Server Error",
+            error: error.message
         });
-
     }
-
-}
-
-// forgot password for mail also 
+};
 
 const forgotPasswordEmail = async (req, res) => {
     try {
         const { email } = req.body;
 
-        // Check if email is provided
         if (!email) {
             return res.status(400).json({
                 data: null,
-                message: "Please provide an email address.",
+                message: "Please provide an email address",
                 error: null,
             });
         }
 
-        // Find user by email
         const findUser = await HiringCandidate.findOne({ email });
-
         if (!findUser) {
             return res.status(404).json({
                 data: null,
-                message: "No user found with this email address.",
+                message: "No user found with this email address",
                 error: null,
             });
         }
 
-        // Send the forgot password email
-        await sendMail(email, findUser._id, "forgot Your Password", "candidate-forgot-password", findUser.fullname);
+        // Generate and save OTP
+        const otp = generateOTP();
+        findUser.otp = otp;
+        findUser.otpExpires = Date.now() + 10 * 60 * 1000;
+        await findUser.save();
+console.log(otp)
+        // Send OTP email
+        await sendMail(
+            email,
+            findUser._id,
+            "Password Reset OTP",
+            "candidate-forgot-password",
+            findUser.name,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            otp 
+        );
 
-        // Send success response
         return res.status(200).json({
             data: null,
-            message: "Forgot password link has been sent to your email.",
+            message: "OTP has been sent to your email",
             error: null,
         });
-
     } catch (error) {
-        console.log(error.message);
-
+        console.error(error);
         return res.status(500).json({
-            success: false,
             data: null,
+            message: "An error occurred while sending OTP",
             error: error.message,
-            message: "An error occurred while sending the email.",
         });
     }
 };
 
+const verifyOtp = async (req, res) => {
+    try {
+        const { email, otp } = req.body;
 
-export { candidateLogin, fetchCandidateDetails, forgotPassword, forgotPasswordEmail };
+        if (!email || !otp) {
+            return res.status(400).json({
+                message: "Email and OTP are required",
+                error: null
+            });
+        }
 
+        const user = await HiringCandidate.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+                error: null
+            });
+        }
+
+        if (user.otp !== otp || user.otpExpires < Date.now()) {
+            return res.status(400).json({
+                message: "Invalid or expired OTP",
+                error: null
+            });
+        }
+
+        // Clear OTP after verification
+        user.otp = null;
+        user.otpExpires = null;
+        await user.save();
+
+        return res.status(200).json({
+            message: "OTP verified successfully",
+            error: null
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: "Server Error",
+            error: error.message
+        });
+    }
+};
+
+const forgotPassword = async (req, res) => {
+    try {
+        const { email, password, confirmPasswordValue } = req.body;
+        console.log(email,password,confirmPasswordValue)
+
+        if (!email || !password || !confirmPasswordValue) {
+            return res.status(400).json({
+                message: "Please provide all required fields",
+                error: null,
+            });
+        }
+
+        const user = await HiringCandidate.findOne({ email });
+        if (!user) {
+            return res.status(404).json({
+                message: "User not found",
+                error: null,
+            });
+        }
+
+        console.log(user)
+
+        if (password !== confirmPasswordValue) {
+            return res.status(400).json({
+                message: "Passwords do not match",
+                error: null,
+            });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        user.password = hashedPassword;
+        await user.save();
+
+        console.log(hashedPassword)
+        return res.status(200).json({
+            message: "Password updated successfully",
+            error: null,
+        });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            message: "Server Error",
+            error: error.message
+        });
+    }
+};
+
+export { 
+    candidateLogin, 
+    candidateSignup, 
+    candidateLogout,
+    forgotPasswordEmail,
+    verifyOtp,
+    forgotPassword 
+};

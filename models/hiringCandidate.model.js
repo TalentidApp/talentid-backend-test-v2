@@ -5,15 +5,13 @@ import { hiringCandidateStatus } from "../utils/data.js";
 const hiringCandidateSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, unique: true, required: true },
-    password:{
-
-        type:String,
-        
+    password: {
+        type: String,
     },
-    phoneNo: { 
-        type: String, 
+    phoneNo: {
+        type: String,
         validate: {
-            validator: function(v) {
+            validator: function (v) {
                 return /^\+?[1-9]\d{1,14}$/.test(v); // E.164 phone number format
             },
             message: props => `${props.value} is not a valid phone number!`
@@ -21,10 +19,10 @@ const hiringCandidateSchema = new mongoose.Schema({
     },
     links: [{ name: String, url: String }],  // Structured links
     address: { type: String },
-    status: { 
-        type: String, 
-        enum: Object.values(hiringCandidateStatus), 
-        default: hiringCandidateStatus.pending 
+    status: {
+        type: String,
+        enum: Object.values(hiringCandidateStatus),
+        default: hiringCandidateStatus.pending
     },
     // joiningDate: { type: Date },
     skills: [{ type: String }],
@@ -32,14 +30,17 @@ const hiringCandidateSchema = new mongoose.Schema({
     educationCollege: { type: String },
     educationDegree: { type: String },
     resumeLink: { type: String },
-    role:{
+    role: {
 
         type: String,
-        default:"Candidate",
+        default: "Candidate",
     },
-    
-    // Linking to Offer Schema
-    offers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Offer" }]
+
+    offers: [{ type: mongoose.Schema.Types.ObjectId, ref: "Offer" }],
+    otp: { type: String },
+    otpExpires: { type: Date },
+    resetPasswordToken: { type: String },
+    resetPasswordTokenExpires: { type: Date }
 }, { timestamps: true });
 
 const HiringCandidate = mongoose.model("HiringCandidate", hiringCandidateSchema);
