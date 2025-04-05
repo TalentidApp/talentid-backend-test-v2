@@ -36,7 +36,7 @@ const candidateLogin = async (req, res) => {
         res.cookie("token", token, {
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
+            sameSite: "none",
             maxAge: 24 * 60 * 60 * 1000,
         });
 
@@ -45,7 +45,7 @@ const candidateLogin = async (req, res) => {
         return res.status(200).json({
             message: "Logged in successfully",
             data: isCandidateExists,
-            token:token,
+            token: token,
             error: null,
         });
     } catch (error) {
@@ -75,7 +75,7 @@ const candidateSignup = async (req, res) => {
 
         await newCandidate.save();
 
-        await sendMail(email,null,"Welcome! Your Sign-In to Talent ID Was Successful 🎉","candidate-signup",fullName,null,null,null,null,null,null,null,null)
+        await sendMail(email, null, "Welcome! Your Sign-In to Talent ID Was Successful 🎉", "candidate-signup", fullName, null, null, null, null, null, null, null, null)
 
         return res.status(201).json({ message: "Candidate registered successfully" });
     } catch (error) {
@@ -131,7 +131,7 @@ const forgotPasswordEmail = async (req, res) => {
         findUser.otp = otp;
         findUser.otpExpires = Date.now() + 10 * 60 * 1000;
         await findUser.save();
-console.log(otp)
+        console.log(otp)
         // Send OTP email
         await sendMail(
             email,
@@ -146,7 +146,7 @@ console.log(otp)
             null,
             null,
             null,
-            otp 
+            otp
         );
 
         return res.status(200).json({
@@ -211,7 +211,7 @@ const verifyOtp = async (req, res) => {
 const forgotPassword = async (req, res) => {
     try {
         const { email, password, confirmPasswordValue } = req.body;
-        console.log(email,password,confirmPasswordValue)
+        console.log(email, password, confirmPasswordValue)
 
         if (!email || !password || !confirmPasswordValue) {
             return res.status(400).json({
@@ -255,11 +255,11 @@ const forgotPassword = async (req, res) => {
     }
 };
 
-export { 
-    candidateLogin, 
-    candidateSignup, 
+export {
+    candidateLogin,
+    candidateSignup,
     candidateLogout,
     forgotPasswordEmail,
     verifyOtp,
-    forgotPassword 
+    forgotPassword
 };
