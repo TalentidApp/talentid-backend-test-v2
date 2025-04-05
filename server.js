@@ -39,7 +39,7 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: ["*"], credentials: true }));
+app.use(cors({ origin: ["http://localhost:3000/",'https://offers.talentid.app/','http://localhost:5173/'], credentials: true }));
 app.set('trust proxy', 1);
 // Define __dirname manually
 const __filename = fileURLToPath(import.meta.url);
@@ -60,10 +60,10 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    secure: process.env.NODE_ENV === 'production', 
     httpOnly: true,
-    sameSite: 'lax', // or 'strict' depending on your needs
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: 'lax',
+    maxAge: 24 * 60 * 60 * 1000,
   },
 }));
 
