@@ -4,7 +4,7 @@ import cors from "cors";
 import connectDB from "./db/connectDB.js";
 import cookieParser from "cookie-parser";
 import { startCronJob } from "./utils/cronJobs.js";
-
+import session from 'express-session';
 import fileUpload from "express-fileupload";
 import path from "path";
 import bodyParser from "body-parser";
@@ -41,7 +41,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({ origin: ["http://localhost:5173","http://localhost:3000"], credentials: true }));
-
+app.set('trust proxy', 1);
 // Define __dirname manually
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -55,6 +55,18 @@ app.use((req, res, next) => {
   res.setHeader("ngrok-skip-browser-warning", "true");
   next();
 });
+
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    httpOnly: true,
+    sameSite: 'lax', // or 'strict' depending on your needs
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  },
+}));
 
 // Routes
 app.use("/api/users", userRoutes);

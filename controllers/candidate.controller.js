@@ -1,8 +1,6 @@
 
 import HiringCandidate from "../models/hiringCandidate.model.js";
-import { fileURLToPath } from 'url';
 import Offer from "../models/offer.model.js";
-import path from 'path';
 
 // fetch specific candidate details by their id 
 
