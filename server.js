@@ -39,7 +39,7 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: ["http://localhost:3000/",'https://offers.talentid.app/','http://localhost:5173/'], credentials: true }));
+app.use(cors({ origin: ["http://localhost:3000",'https://offers.talentid.app','http://localhost:5173'], credentials: true }));
 app.set('trust proxy', 1);
 // Define __dirname manually
 const __filename = fileURLToPath(import.meta.url);
