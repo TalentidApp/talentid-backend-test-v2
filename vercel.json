@@ -9,10 +9,7 @@
     "routes": [
       {
         "src": "/(.*)",
-        "dest": "server.js",
-        "headers": {
-          "Access-Control-Allow-Origin": ["http://localhost:3000/","https://offers.talentid.app/","http://localhost:5173/"]
-        }
+        "dest": "server.js"
       }
     ]
   }
