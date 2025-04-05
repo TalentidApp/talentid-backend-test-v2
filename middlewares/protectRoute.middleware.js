@@ -1,12 +1,22 @@
+import jwt from 'jsonwebtoken';
+
 const protectRoute = async (req, res, next) => {
   try {
     console.log("Headers:", req.headers);
     console.log("Cookies:", req.cookies);
     console.log("Full Request URL:", req.originalUrl);
 
-    const token = req.cookies.token;
+    let token = req.cookies.token;
+    if (req.headers.authorization) {
+      const authHeader = req.headers.authorization;
+      if (authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+        console.log("Using token from Authorization header:", token);
+      }
+    }
+
     if (!token) {
-      console.log("No token found in cookies");
+      console.log("No token found in cookies or Authorization header");
       return res.status(401).json({ message: "Unauthorized - No token" });
     }
 
@@ -27,3 +37,7 @@ const protectRoute = async (req, res, next) => {
     res.status(401).json({ message: "Unauthorized - Invalid token", error: err.message });
   }
 };
+
+
+
+export default protectRoute;

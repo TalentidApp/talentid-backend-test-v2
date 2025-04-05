@@ -528,9 +528,8 @@ const deleteUserAccount = async (req, res) => {
 
 const searchCompanies = async (req, res) => {
   try {
-    // Fetch all users and extract unique company names
     const users = await User.find({}).select('company');
-    const companyNames = [...new Set(users.map(user => user.company).filter(Boolean))]; // Remove duplicates and falsy values
+    const companyNames = [...new Set(users.map(user => user.company).filter(Boolean))]; 
 
     if (!companyNames.length) {
       return res.status(404).json({ message: "No companies found" });

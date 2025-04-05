@@ -8,7 +8,6 @@ import session from 'express-session';
 import fileUpload from "express-fileupload";
 import path from "path";
 import bodyParser from "body-parser";
-import axios from "axios";
 import { fileURLToPath } from 'url';
 
 import paymentRoute from "./routes/payment.route.js";
@@ -41,7 +40,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({ origin: ["http://localhost:3000",'https://offers.talentid.app','http://localhost:5173'], credentials: true }));
 app.set('trust proxy', 1);
-// Define __dirname manually
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
