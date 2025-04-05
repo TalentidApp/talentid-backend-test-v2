@@ -11,7 +11,6 @@ import bodyParser from "body-parser";
 import axios from "axios";
 import { fileURLToPath } from 'url';
 
-// Routes
 import paymentRoute from "./routes/payment.route.js";
 import OrderRoutes from "./routes/order.route.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -40,7 +39,7 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: ["http://localhost:5173","http://localhost:3000"], credentials: true }));
+app.use(cors({ origin: ["*"], credentials: true }));
 app.set('trust proxy', 1);
 // Define __dirname manually
 const __filename = fileURLToPath(import.meta.url);
