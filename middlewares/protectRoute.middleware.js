@@ -23,10 +23,10 @@ const protectRoute = async (req, res, next) => {
 
     console.log("Raw Token value is:", token);
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log("Decoded token:", decoded);
+    // const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // console.log("Decoded token:", decoded);
 
-    req.user = decoded;
+    // req.user = decoded;
 
     next();
   } catch (err) {
