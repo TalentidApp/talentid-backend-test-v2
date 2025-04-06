@@ -5,6 +5,7 @@ const protectRoute = async (req, res, next) => {
     console.log("Headers:", req.headers);
     console.log("Cookies:", req.cookies);
     console.log("Full Request URL:", req.originalUrl);
+    console.log("process.env.JWT_SECRET:", process.env.JWT_SECRET);
 
     let token = req.cookies.token;
     if (req.headers.authorization) {

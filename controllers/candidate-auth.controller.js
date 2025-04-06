@@ -34,6 +34,7 @@ const candidateLogin = async (req, res) => {
         const token = jwt.sign(payloadData, process.env.JWT_SECRET, { expiresIn: "24h" });
 
         res.cookie("token", token, {
+            domain: ".talentid.app",
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "none",

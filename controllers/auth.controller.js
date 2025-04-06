@@ -286,6 +286,9 @@ const loginUser = async (req, res) => {
             }
         }
 
+        console.log("process.env.JWT_SECRET:", process.env.JWT_SECRET);
+
+
         // Generate JWT Token
         const expiresIn = 24 * 60 * 60 * 1000; // 1 day
         const tokenExpiry = Date.now() + expiresIn;
@@ -297,6 +300,7 @@ const loginUser = async (req, res) => {
 
         // Set HTTP-only cookie
         res.cookie("token", token, {
+            domain: ".talentid.app",
             httpOnly: true,
             secure: process.env.NODE_ENV === "production",
             sameSite: "lax",
