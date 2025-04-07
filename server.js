@@ -38,8 +38,23 @@ app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
-app.use(cors({ origin: ["http://localhost:3000",'https://offers.talentid.app',"https://www.offers.talentid.app",'https://work.talentid.app',"https://www.work.talentid.app",'http://localhost:5173'], credentials: true }));
-app.set('trust proxy', 1);
+const allowedOrigins = ["http://localhost:3000", 'https://offers.talentid.app', "https://www.offers.talentid.app", 'https://work.talentid.app', "https://www.work.talentid.app", 'http://localhost:5173']
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) {
+        return callback(new Error("CORS Blocked: No Origin"), false); // ❌ Blocks Postman & cURL
+      }
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error("CORS Blocked: Invalid Origin"), false);
+    },
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+); app.set('trust proxy', 1);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +74,7 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: process.env.NODE_ENV === 'production', 
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000,

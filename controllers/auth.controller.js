@@ -292,12 +292,14 @@ const loginUser = async (req, res) => {
         // Generate JWT Token
         const expiresIn = 24 * 60 * 60 * 1000; // 1 day
         const tokenExpiry = Date.now() + expiresIn;
+        // console.log
         const token = jwt.sign(
             { id: user._id, email: user.email, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: "1d" }
         );
 
+        console.log(token)
         // Set HTTP-only cookie
         res.cookie("token", token, {
             domain: ".talentid.app",

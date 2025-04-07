@@ -8,7 +8,7 @@ const protectRoute = async (req, res, next) => {
     console.log("process.env.JWT_SECRET:", process.env.JWT_SECRET);
 
     let token = req.cookies.token;
-    if (req.headers.authorization) {
+    if (req.headers.authorization || !req.cookies.token) {
       const authHeader = req.headers.authorization;
       if (authHeader.startsWith("Bearer ")) {
         token = authHeader.split(" ")[1];
