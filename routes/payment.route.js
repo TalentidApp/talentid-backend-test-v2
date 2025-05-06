@@ -4,14 +4,13 @@ import express from "express";
 const router = express.Router();
 
 
-import {createPaymentLink,initializePayemnt} from "../controllers/payment.controller.js";
-
-// Define a middleware function to log each request
-
-router.post("/create-payment-link",createPaymentLink);
+import {createPaymentLink, initializePayment  } from "../controllers/payment.controller.js";
+import protectRoute from "../middlewares/protectRoute.middleware.js";
 
 
-router.post("/cashfree-webhook",initializePayemnt);
+router.post("/create-payment-link",protectRoute,createPaymentLink);
+
+router.post("/cashfree-webhook",protectRoute,initializePayment);
 
 
 export default router;

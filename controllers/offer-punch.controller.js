@@ -1,121 +1,86 @@
-import Offer from "../models/offer.model.js";
-import HiringCandidate from "../models/hiringCandidate.model.js";
-import upload from "../utils/upload.js";
-import { sendMail } from "../utils/mail.js";
-
-import cloudinary from '../config/cloudinary.js';
-
+import express from "express";
+import OfferPunch from "../models/offer-punch.model.js";
+import User from "../models/user.model.js";
+import UploadImageToCloudinary from "../utils/uploadImageToCloudinary.js";
 import mongoose from "mongoose";
 
 
-const createOffer = async (req, res) => {
-
-    const session = await mongoose.startSession(); // Start a transaction session
-    session.startTransaction(); // Begin transaction
-
+const createOfferPunch = async (req, res) => {
     try {
-        const {
-            jobTitle,
-            joiningDate,
-            expiryDate,
-            candidateEmail,
-            candidateName,
-            candidatePhoneNo,
-            companyName,
-            offerLetterStatus,
-            digioReqBody
-        } = req.body;
-
-        const hrId = req.user.id;
-
-        console.log(digioReqBody);
-
-        // Ensure required fields are present
-
-        if (!hrId || !jobTitle || !joiningDate || !expiryDate || !candidateEmail || !offerLetterStatus) {
-            throw new Error("Missing required fields");
-        }
-
-        // Check if files were uploaded
-
-        if (!req.files || !req.files.offerLetter || !req.files.candidateResume) {
-            throw new Error("Offer letter and candidate resume are required");
-        }
-
-        // Extract file URLs from Cloudinary
-        const offerLetterLink = req.files.offerLetter[0].path;
-        const candidateResumeLink = req.files.candidateResume[0].path;
-
-        console.log("Uploaded Offer Letter:", offerLetterLink);
-        console.log("Uploaded Candidate Resume:", candidateResumeLink);
-
-        // Check if candidate exists
-        let candidate = await HiringCandidate.findOne({ email: candidateEmail }).session(session);
-
-        if (!candidate) {
-            candidate = new HiringCandidate({
-                name: candidateName || "Unknown",
-                email: candidateEmail,
-                phoneNo: candidatePhoneNo || "",
-                resumeLink: candidateResumeLink,
-                offers: [],
-            });
-
-            await candidate.save({ session });
-
-        } else {
-            if (!candidate.resumeLink) {
-                candidate.resumeLink = candidateResumeLink;
-            }
-        }
-
-        // we have to upload the document to the digio and get the url 
-
-        const result = await uploadDocumentToDigio(digioReqBody);
-
-        // Create Offer
-        const newOffer = new Offer({
-            hr: hrId,
-            candidate: candidate._id,
-            jobTitle,
-            offerLetterLink,
-            joiningDate,
-            offerLetterStatus,
-            expirationDate: expiryDate,
-            // authenticationUrl:"", // 
-            // digioDocumentId:"", //
-            // signingPartyEmail:"",
-            signingStatus:"requested",
-            signingRequestedOn: new Date(),
-            signingExpiresOn: new Date(new Date().getTime() + 60 * 60 * 1000 * 24 * 30), // 30 days from now
-
-        });
-
-        await newOffer.save({ session });
-
-        // Update candidate with offer reference
-        candidate.offers.push(newOffer._id);
-        await candidate.save({ session });
-
-        const populatedOffer = await Offer.findById(newOffer._id)
-            .populate('candidate')  // Populates the 'candidate' field
-            .exec();
-
-        // Commit the transaction (if everything is successful)
-        await session.commitTransaction();
-        session.endSession();
-
-        res.status(201).json({ message: "Offer created successfully", offer: populatedOffer });
-
+      const {
+        jobTitle,
+        candidateName,
+        candidateEmail,
+        candidatePhoneNo,
+        companyName,
+        joiningDate,
+        expiryDate,
+        offerLetter, // Base64 string
+        candidateResume, // Base64 string
+        offerLetterStatus,
+        status, // Add status to req.body (optional, defaults to "Pending")
+      } = req.body;
+  
+      const hrId = req.user.id;
+  
+      if (!hrId || !jobTitle || !joiningDate || !expiryDate || !candidateEmail || !offerLetterStatus) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+  
+      if (!offerLetter || !candidateResume) {
+        return res.status(400).json({ message: "Offer letter and resume are required" });
+      }
+  
+      const offerLetterBuffer = Buffer.from(offerLetter.split(",")[1], "base64");
+      const candidateResumeBuffer = Buffer.from(candidateResume.split(",")[1], "base64");
+  
+      const offerLetterResult = await UploadImageToCloudinary(offerLetterBuffer, "offer_letters");
+      const candidateResumeResult = await UploadImageToCloudinary(candidateResumeBuffer, "resumes");
+  
+      const offerPunch = new OfferPunch({
+        jobTitle,
+        candidateName,
+        candidateEmail,
+        candidatePhoneNo,
+        companyName,
+        joiningDate,
+        expiryDate,
+        offerLetter: offerLetterResult.secure_url,
+        candidateResume: candidateResumeResult.secure_url,
+        offerLetterStatus,
+        hr: hrId,
+        status: status || "Pending", // Default to "Pending" if not provided
+      });
+  
+      await offerPunch.save();
+  
+      // Update User: increment offerLettersSent, push offerPunch, and increment ghostingCount if "Ghosted"
+      const updateFields = {
+        $inc: { offerLettersSent: 1 },
+        $push: { offerPunches: offerPunch._id },
+      };
+      if (status === "Ghosted") {
+        updateFields.$inc.ghostingCount = 1;
+      }
+      await User.findByIdAndUpdate(hrId, updateFields, { new: true });
+  
+      res.status(201).json({ message: "Offer punch created successfully", offerPunch });
     } catch (error) {
-        // Rollback any changes if an error occurs
-        await session.abortTransaction();
-        session.endSession();
-
-        console.error("Error in createOffer:", error);
-        res.status(500).json({ error: error.message });
+      console.error("Error creating offer punch:", error.message);
+      res.status(500).json({ message: "Server error", error: error.message });
     }
-};
+  };
+
+  const getOfferPunches = async (req, res) => {
+    try {
+      const hrId = req.user.id;
+      const offerPunches = await OfferPunch.find({ hr: hrId });
+      res.status(200).json(offerPunches);
+    } catch (error) {
+      console.error("Error fetching offer punches:", error.message);
+      res.status(500).json({ message: "Server error", error: error.message });
+    }
+  };
 
 
-export default createOffer;
+export { createOfferPunch , getOfferPunches};

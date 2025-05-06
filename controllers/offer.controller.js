@@ -1,5 +1,7 @@
 import Offer from "../models/offer.model.js";
 import HiringCandidate from "../models/hiringCandidate.model.js";
+import TestSchedule from "../models/test-schedule.model.js";
+import Test from '../models/test.model.js'
 import { sendMail } from "../utils/mail.js";
 import mongoose from "mongoose";
 import axios from "axios";
@@ -7,10 +9,11 @@ import User from "../models/user.model.js";
 import UploadImageToCloudinary from "../utils/uploadImageToCloudinary.js";
 import FormData from "form-data";
 import fs from "fs";
-import { signing_status } from "../utils/data.js";
+import { v4 as uuidv4 } from "uuid";
 
-const DIGIO_BASE_URL = "https://api-sandbox.digio.in/v2/client/document/upload"; 
+const DIGIO_BASE_URL = "https://api-sandbox.digio.in/v2/client/document/upload";
 const BASE64_AUTH = Buffer.from(`${process.env.DIGIO_CLIENT_ID}:${process.env.DIGIO_CLIENT_SECRET}`).toString("base64");
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ;
 
 const uploadDocumentToDigio = async (reqBody) => {
   try {
@@ -76,6 +79,7 @@ const createOffer = async (req, res) => {
     const {
       jobTitle, salary, joiningDate, expiryDate, emailSubject, emailMessage,
       candidateEmail, candidateName, candidatePhoneNo, companyName, digioReqBody,
+      status, resumeData
     } = req.body;
 
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized access." });
@@ -93,13 +97,12 @@ const createOffer = async (req, res) => {
     if (!offerLetterUpload?.url) throw new Error("Failed to upload offer letter.");
     const offerLetterLink = offerLetterUpload.url;
 
-    const link = await UploadImageToCloudinary(candidateResume,'resume');
+    const link = await UploadImageToCloudinary(candidateResume, "resume");
     const resumeLink = link.secure_url;
-    console.log(resumeLink)
-    const skills = ['java','python']
     if (!resumeLink) throw new Error("Failed to extract skills or upload resume.");
 
     let candidate = await HiringCandidate.findOne({ email: candidateEmail }).session(session);
+    const skills = resumeData ? JSON.parse(resumeData).skills : [];
     if (!candidate) {
       candidate = new HiringCandidate({
         name: candidateName || "Unknown",
@@ -115,29 +118,30 @@ const createOffer = async (req, res) => {
       if (skills.length) candidate.skills = [...new Set([...candidate.skills, ...skills])];
     }
 
-    // const digioData = await uploadDocumentToDigio(JSON.parse(digioReqBody));
-    // const authUrl = findAuthUrlByEmail(digioData.signing_parties, candidateEmail);
-
     const newOffer = new Offer({
       hr: hrId,
       candidate: candidate._id,
       jobTitle,
+      salary,
       offerLetterLink,
       joiningDate,
       expirationDate: expiryDate,
-      // authenticationUrl: authUrl,
-      // digioDocumentId: digioData.id,
       signingPartyEmail: candidateEmail,
-      signingStatus: signing_status.requested,
+      signingStatus: "requested",
       signingRequestedOn: new Date(),
       signingExpiresOn: new Date(Date.now() + getDaysDifference(expiryDate) * 24 * 60 * 60 * 1000),
+      status: status || "Pending",
     });
 
     await newOffer.save({ session });
     candidate.offers.push(newOffer._id);
     await candidate.save({ session });
 
-    await User.findByIdAndUpdate(hrId, { $inc: { offerLettersSent: 1 } }, { new: true });
+    const updateFields = { $inc: { offerLettersSent: 1 } };
+    if (status === "Ghosted") {
+      updateFields.$inc.ghostingCount = 1;
+    }
+    await User.findByIdAndUpdate(hrId, updateFields, { new: true, session });
 
     await session.commitTransaction();
     session.endSession();
@@ -153,6 +157,672 @@ const createOffer = async (req, res) => {
     await session.abortTransaction();
     session.endSession();
     console.error("❌ Error in createOffer:", error.message);
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
+};
+
+const getRandomHour = () => {
+  return Math.floor(Math.random() * 13) + 8; // 8 to 20 (8 AM to 8 PM)
+};
+
+const generateTest = async (req, res, { skipEmail = false } = {}) => {
+  console.log("🚀 Starting generateTest with request body:", JSON.stringify(req.body, null, 2));
+
+  try {
+    const { candidateEmail, candidateName, jobTitle, skills, questionCount, scheduledDate } = req.body;
+
+    // Validate required fields
+    if (!candidateEmail || !candidateName || !jobTitle || !questionCount || !scheduledDate) {
+      console.log("❌ Validation failed: Missing required fields");
+      return res.status(400).json({ error: "Missing required fields: candidateEmail, candidateName, jobTitle, questionCount, and scheduledDate are required." });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(candidateEmail)) {
+      console.log("❌ Invalid email format");
+      return res.status(400).json({ error: "Invalid email format." });
+    }
+
+    // Validate questionCount
+    if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 50) {
+      console.log("❌ Invalid question count");
+      return res.status(400).json({ error: "Question count must be an integer between 1 and 50." });
+    }
+
+    // Validate scheduledDate
+    const scheduled = new Date(scheduledDate);
+    const now = new Date(Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate(),
+      new Date().getUTCHours(),
+      new Date().getUTCMinutes(),
+      new Date().getUTCSeconds()
+    ));
+    if (isNaN(scheduled.getTime()) || scheduled <= now) {
+      console.log("❌ Invalid or past scheduled date");
+      return res.status(400).json({ error: "Scheduled date must be a valid future date." });
+    }
+
+    // Validate skills
+    if (skills && (!Array.isArray(skills) || skills.some(skill => typeof skill !== 'string' || skill.trim() === ''))) {
+      console.log("❌ Invalid skills format");
+      return res.status(400).json({ error: "Skills must be an array of non-empty strings." });
+    }
+
+    console.log("✅ Validation passed");
+
+    // Check candidate existence
+    console.log("🔍 Searching for candidate with email:", candidateEmail);
+    let candidate = await HiringCandidate.findOne({ email: candidateEmail });
+    if (!candidate) {
+      console.log("📝 Creating new candidate");
+      candidate = new HiringCandidate({
+        name: candidateName,
+        email: candidateEmail,
+        skills: skills || [],
+      });
+      await candidate.save();
+      console.log("✅ Candidate created:", candidate._id);
+    } else {
+      console.log("✅ Candidate found:", candidate._id);
+    }
+
+    // Prepare Anthropic API prompt
+    const prompt = `
+      You are an expert in technical assessments. Generate exactly ${questionCount} multiple-choice questions for a ${jobTitle} role, focusing on the technical skills: ${skills?.join(", ") || "general programming"}. Each question must include:
+      - A clear question text
+      - Four answer options labeled A, B, C, D
+      - One correct answer (e.g., "A")
+      - A brief explanation of why the correct answer is right
+
+      Return the response as a valid JSON array and nothing else. The structure must be:
+      [
+        {
+          "question": "Question text",
+          "options": {
+            "A": "Option A",
+            "B": "Option B",
+            "C": "Option C",
+            "D": "Option D"
+          },
+          "correct": "A",
+          "explanation": "Explanation text"
+        },
+        ...
+      ]
+
+      Ensure:
+      - The response contains exactly ${questionCount} questions.
+      - The JSON is properly formatted with double quotes, no trailing commas, and no extra text.
+      - Do not wrap the array in an object or include code blocks (e.g., \`\`\`json).
+      - Do not include any text, comments, or explanations outside the JSON array.
+    `;
+    console.log("📝 Anthropic API prompt:", prompt);
+
+    // Call Anthropic API
+    console.log("🌐 Sending request to Anthropic API...");
+    const response = await axios.post(
+      "https://api.anthropic.com/v1/messages",
+      {
+        model: "claude-3-5-sonnet-20241022",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }],
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+        },
+      }
+    ).catch(error => {
+      console.error("❌ Anthropic API error:", error.response?.data || error.message);
+      throw new Error(`Failed to generate questions from Anthropic API: ${error.response?.data?.error?.message || error.message}`);
+    });
+    console.log("✅ Anthropic API response received");
+
+    // Log raw response for debugging
+    const rawResponse = response.data.content[0].text;
+    console.log("📄 Raw Anthropic response:", rawResponse);
+
+    // Clean the response to handle common malformed JSON
+    let cleanedResponse = rawResponse.trim();
+    if (cleanedResponse.startsWith('{') && cleanedResponse.includes('[') && cleanedResponse.endsWith('}')) {
+      const arrayStart = cleanedResponse.indexOf('[');
+      const arrayEnd = cleanedResponse.lastIndexOf(']');
+      if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+        cleanedResponse = cleanedResponse.slice(arrayStart, arrayEnd + 1);
+        console.log("🧹 Cleaned response (removed outer object):", cleanedResponse);
+      }
+    }
+    if (cleanedResponse.startsWith('```json') && cleanedResponse.endsWith('```')) {
+      cleanedResponse = cleanedResponse.slice(7, -3).trim();
+      console.log("🧹 Cleaned response (removed code fences):", cleanedResponse);
+    }
+
+    // Parse questions
+    let parsedQuestions;
+    try {
+      parsedQuestions = JSON.parse(cleanedResponse);
+      if (!Array.isArray(parsedQuestions) || parsedQuestions.length !== questionCount) {
+        throw new Error(`Invalid question format or count. Expected ${questionCount} questions, got ${parsedQuestions.length}`);
+      }
+      for (const q of parsedQuestions) {
+        if (!q.question || !q.options || !q.correct || !q.explanation ||
+          !['A', 'B', 'C', 'D'].includes(q.correct) ||
+          !q.options.A || !q.options.B || !q.options.C || !q.options.D) {
+          throw new Error("Invalid question structure: Missing required fields or incorrect format");
+        }
+      }
+      console.log("✅ Parsed questions:", parsedQuestions);
+    } catch (error) {
+      console.error("❌ Error parsing Anthropic response:", error.message);
+      return res.status(500).json({
+        error: "Failed to parse test questions.",
+        details: error.message,
+        rawResponse: rawResponse.substring(0, 500),
+        cleanedResponse: cleanedResponse.substring(0, 500)
+      });
+    }
+
+    const testId = uuidv4();
+    const testLink = `https://offers.talentid.app/test/${testId}`;
+    console.log("🔗 Generated test link:", testLink);
+
+    console.log("💾 Saving test to MongoDB...");
+    const test = new Test({
+      testId,
+      candidate: candidate._id,
+      jobTitle,
+      questions: parsedQuestions,
+      status: "Pending",
+      results: {
+        correct: 0,
+        wrong: 0,
+        noAttempt: parsedQuestions.length,
+      },
+      candidateAnswers: parsedQuestions.map((_, index) => ({
+        questionIndex: index,
+        selectedOption: null,
+      })),
+      scheduledDate: scheduled,
+      duration: 60,
+    });
+
+    await test.save();
+    console.log("✅ Test saved to MongoDB with ID:", test._id);
+
+    if (!skipEmail) {
+      console.log("📧 Sending test invitation email to candidate:", candidateEmail);
+      await sendMail(
+        candidateEmail,
+        null,
+        `Technical Assessment for ${jobTitle}`,
+        "test-invitation",
+        candidateName,
+        null,
+        candidateName,
+        "Talentid.app",
+        jobTitle,
+        testLink,
+        null,
+        null,
+        null,
+        {
+          scheduledDate,
+          questionCount,
+          duration: 60,
+          skills: skills || [],
+        }
+      ).catch(error => {
+        console.error("❌ Failed to send test invitation email:", error.message);
+      });
+      console.log("✅ Test invitation email sent successfully");
+    } else {
+      console.log("📧 Skipping test invitation email");
+    }
+
+    return res.status(200).json({ message: "Test generated successfully", testLink, testId, scheduledDate });
+  } catch (error) {
+    console.error("❌ Error in generateTest:", {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+      status: error.response?.status,
+    });
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
+};
+
+const scheduleTests = async (req, res) => {
+  console.log("🚀 Starting scheduleTests with request body:", JSON.stringify(req.body, null, 2));
+
+  try {
+    const { candidateEmail, candidateName, jobTitle, skills, questionCount, frequency, joiningDate } = req.body;
+
+    // Validate required fields
+    if (!candidateEmail || !candidateName || !jobTitle || !questionCount || !frequency || !joiningDate) {
+      console.log("❌ Validation failed: Missing required fields");
+      return res.status(400).json({ error: "Missing required fields: candidateEmail, candidateName, jobTitle, questionCount, frequency, and joiningDate are required." });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(candidateEmail)) {
+      console.log("❌ Invalid email format");
+      return res.status(400).json({ error: "Invalid email format." });
+    }
+
+    // Validate questionCount and frequency
+    if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 50) {
+      console.log("❌ Invalid question count");
+      return res.status(400).json({ error: "Question count must be an integer between 1 and 50." });
+    }
+    if (!Number.isInteger(frequency) || frequency < 1 || frequency > 6) {
+      console.log("❌ Invalid frequency");
+      return res.status(400).json({ error: "Frequency must be an integer between 1 and 6." });
+    }
+
+    // Validate skills
+    if (skills && (!Array.isArray(skills) || skills.length === 0 || skills.some(skill => typeof skill !== 'string' || skill.trim() === ''))) {
+      console.log("❌ Invalid skills format");
+      return res.status(400).json({ error: "Skills must be a non-empty array of non-empty strings." });
+    }
+
+    // Validate joining date
+    const joining = new Date(joiningDate);
+    const today = new Date(Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate()
+    ));
+    if (isNaN(joining.getTime()) || joining <= today) {
+      console.log("❌ Invalid joining date");
+      return res.status(400).json({ error: "Joining date must be a valid future date." });
+    }
+
+    // Check candidate existence
+    console.log("🔍 Searching for candidate with email:", candidateEmail);
+    let candidate = await HiringCandidate.findOne({ email: candidateEmail });
+    if (!candidate) {
+      console.log("📝 Creating new candidate");
+      candidate = new HiringCandidate({
+        name: candidateName,
+        email: candidateEmail,
+        skills: skills || [],
+      });
+      await candidate.save();
+      console.log("✅ Candidate created:", candidate._id);
+    } else {
+      console.log("✅ Candidate found:", candidate._id);
+    }
+
+    // Check for existing schedule to prevent duplicate emails
+    const existingSchedule = await TestSchedule.findOne({
+      candidate: candidate._id,
+      jobTitle,
+      status: 'Pending',
+    });
+    if (existingSchedule) {
+      console.log("❌ Existing pending schedule found for candidate");
+      return res.status(400).json({ error: "A pending test schedule already exists for this candidate and job title." });
+    }
+
+    // Calculate test dates within 8 AM to 8 PM UTC
+    const diffDays = Math.ceil((joining - today) / (1000 * 60 * 60 * 24));
+    if (diffDays < frequency) {
+      console.log("❌ Insufficient time for test frequency");
+      return res.status(400).json({ error: "Joining date is too soon for the requested test frequency." });
+    }
+    const interval = Math.floor(diffDays / (frequency + 1));
+    const testDates = [];
+    for (let i = 1; i <= frequency; i++) {
+      const testDate = new Date(today.getTime() + interval * i * 24 * 60 * 60 * 1000);
+      const hour = getRandomHour();
+      testDate.setUTCHours(hour, 0, 0, 0); // Store in UTC
+      testDates.push(testDate);
+    }
+    console.log("📅 Calculated test dates (UTC):", testDates);
+
+    // Validate test dates
+    const now = new Date(Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate(),
+      new Date().getUTCHours(),
+      new Date().getUTCMinutes(),
+      new Date().getUTCSeconds()
+    ));
+    for (const testDate of testDates) {
+      if (testDate <= now) {
+        console.log("❌ Test date is in the past or too soon:", testDate);
+        return res.status(400).json({ error: "Test dates must be in the future." });
+      }
+    }
+
+    // Generate tests and collect valid results
+    const testLinks = [];
+    const testIds = [];
+    const failedTests = [];
+    for (const [index, testDate] of testDates.entries()) {
+      console.log(`💾 Generating test ${index + 1} for ${testDate}`);
+      const testReq = {
+        body: {
+          candidateEmail,
+          candidateName,
+          jobTitle,
+          skills,
+          questionCount,
+          scheduledDate: testDate.toISOString(),
+        },
+      };
+      let testData = null;
+      const testRes = {
+        status: (code) => ({
+          json: (data) => {
+            testData = data;
+            console.log(`Test ${index + 1} Response:`, data);
+          },
+        }),
+      };
+
+      try {
+        await generateTest(testReq, testRes, { skipEmail: true });
+        if (testData?.testId && testData?.testLink) {
+          testIds.push(testData.testId);
+          testLinks.push(testData.testLink);
+          console.log(`✅ Test ${index + 1} generated with ID: ${testData.testId}`);
+        } else {
+          throw new Error("Invalid test generation response");
+        }
+      } catch (error) {
+        console.error(`❌ Failed to generate test ${index + 1}:`, error.message);
+        failedTests.push({ testNumber: index + 1, date: testDate, error: error.message });
+      }
+    }
+
+    // Check if any tests were generated successfully
+    if (testIds.length === 0) {
+      console.log("❌ No tests generated successfully");
+      return res.status(500).json({
+        error: "Failed to generate any tests.",
+        details: failedTests,
+      });
+    }
+
+    // Save test schedule
+    console.log("💾 Saving test schedule to MongoDB...");
+    const testSchedule = new TestSchedule({
+      candidate: candidate._id,
+      jobTitle,
+      skills,
+      questionCount,
+      frequency,
+      joiningDate: joining,
+      testDates: testDates.slice(0, testIds.length),
+      testIds,
+      status: "Pending",
+    });
+
+    await testSchedule.save().catch(error => {
+      console.error("❌ Error saving test schedule:", error.message);
+      throw new Error(`Failed to save test schedule: ${error.message}`);
+    });
+    console.log("✅ Test schedule saved:", testSchedule._id);
+
+    // Prepare formatted test schedule for email
+    const formattedTestDates = testDates.slice(0, testIds.length).map((date, index) => ({
+      date: date.toISOString(),
+      link: testLinks[index],
+      number: index + 1,
+    }));
+
+    console.log("📧 Sending test schedule notification email to candidate:", candidateEmail);
+    await sendMail(
+      candidateEmail,
+      null,
+      `Technical Assessments Scheduled for ${jobTitle}`,
+      "test-schedule-notification",
+      candidateName,
+      null,
+      candidateName,
+      "Talentid.app",
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        testDates: formattedTestDates,
+        skills: skills || [],
+        role: jobTitle,
+        questionCount,
+        duration: 60,
+        timezoneNote: "All times are in your local timezone. Please ensure your device's timezone is set correctly."
+      }
+    ).catch(error => {
+      console.error("❌ Failed to send test schedule email:", error.message);
+    });
+    console.log("✅ Test schedule notification email sent successfully");
+
+    const response = {
+      message: `Scheduled ${testIds.length} of ${frequency} tests successfully`,
+      testDates: testDates.slice(0, testIds.length),
+      testLinks,
+      scheduleId: testSchedule._id,
+    };
+
+    if (failedTests.length > 0) {
+      response.partialSuccess = true;
+      response.failedTests = failedTests;
+    }
+
+    return res.status(200).json(response);
+  } catch (error) {
+    console.error("❌ Error in scheduleTests:", {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data,
+    });
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
+};
+
+const getTest = async (req, res) => {
+  console.log("🚀 Starting getTest with testId:", req.params.testId);
+
+  try {
+    const { testId } = req.params;
+
+    if (!testId) {
+      console.log("❌ Missing testId");
+      return res.status(400).json({ error: "Test ID is required." });
+    }
+
+    console.log("🔍 Searching for test with testId:", testId);
+    const test = await Test.findOne({ testId }).populate("candidate");
+
+    if (!test) {
+      console.log("❌ Test not found");
+      return res.status(404).json({ error: "Test not found." });
+    }
+    console.log("✅ Test found:", test._id);
+
+    const testSchedule = await TestSchedule.findOne({ testIds: testId });
+    const maintest = await Test.findOne({ testId }).populate("candidate");
+    if (maintest.status === 'Completed') {
+      console.log("❌ Test no longer available");
+      return res.status(403).json({
+        error: "Test is no longer available.",
+        endTime: endTime.toString(),
+        message: `The test was Completed`,
+      });
+    }
+
+    if (!testSchedule || !testSchedule.testDates || testSchedule.testDates.length === 0) {
+      console.log("❌ Test schedule not found or invalid");
+      return res.status(404).json({ error: "Test schedule not found or has no scheduled dates." });
+    }
+    console.log("✅ Test schedule found:", testSchedule._id);
+
+    // Get current time in IST
+    const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const nowLocal = new Date(now);
+
+    // Get scheduled date and time from testSchedule.testDates[0]
+    const scheduled = new Date(testSchedule.testDates[0]);
+
+    // Set start time in IST using scheduled time's hours and minutes
+    const startTime = new Date(scheduled);
+    startTime.setHours(scheduled.getHours(), scheduled.getMinutes(), 0, 0);
+
+    // Set end time to start time + 1 hour
+    const endTime = new Date(startTime);
+    endTime.setHours(startTime.getHours() + 1, startTime.getMinutes(), 0, 0);
+
+    console.log("🕒 Time Details:");
+    console.log("   ▶️ Current Local Time (Asia/Kolkata):", nowLocal.toString());
+    console.log("   🕓 Test Start Time (Asia/Kolkata):", startTime.toString());
+    console.log("   🕔 Test End Time (Asia/Kolkata):", endTime.toString());
+    console.log("   ⏳ Time Remaining to Start (sec):", Math.floor((startTime - nowLocal) / 1000));
+    console.log("   ⏳ Time Remaining to End (sec):", Math.floor((endTime - nowLocal) / 1000));
+
+    // Check if current time is before the start time
+    if (nowLocal < startTime) {
+      console.log("❌ Test not yet available");
+      return res.status(403).json({
+        error: "Test is not yet available.",
+        startTime: startTime.toString(),
+        timeRemaining: Math.floor((startTime - nowLocal) / 1000),
+        message: `The test will be available at ${startTime.toLocaleString()} in your local time (Asia/Kolkata).`,
+      });
+    }
+
+    // Check if current time is after the end time
+    if (nowLocal >= endTime) {
+      console.log("❌ Test no longer available");
+      return res.status(403).json({
+        error: "Test is no longer available.",
+        endTime: endTime.toString(),
+        message: `The test was available until ${endTime.toLocaleString()} in your local time (Asia/Kolkata).`,
+      });
+    }
+
+    console.log("✅ Test is accessible");
+
+    return res.status(200).json({
+      message: "Test is accessible",
+      test: {
+        testId: test.testId,
+        jobTitle: test.jobTitle,
+        questions: test.questions,
+        duration: test.duration,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        candidate: {
+          name: test.candidate.name,
+          email: test.candidate.email,
+        },
+      },
+    });
+
+  } catch (error) {
+    console.error("❌ Error in getTest:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    return res.status(500).json({ error: error.message || "Internal Server Error" });
+  }
+};
+
+const submitTest = async (req, res) => {
+  console.log("🚀 Starting submitTest with request body:", JSON.stringify(req.body, null, 2));
+
+  try {
+    const { testId, answers } = req.body;
+
+    // Validate input
+    if (!testId || !Array.isArray(answers)) {
+      console.log("❌ Invalid test ID or answers");
+      return res.status(400).json({ error: "Invalid test ID or answers. Test ID must be a string and answers must be an array." });
+    }
+
+    const test = await Test.findOne({ testId }).populate("candidate");
+    if (!test) {
+      console.log("❌ Test not found");
+      return res.status(404).json({ error: "Test not found." });
+    }
+
+    if (test.status === "Completed" || test.status === "Expired") {
+      console.log(`❌ Test is already ${test.status.toLowerCase()}`);
+      return res.status(400).json({ error: `Test is already ${test.status.toLowerCase()}.` });
+    }
+
+
+
+    if (answers.length > test.questions.length) {
+      console.log("❌ Too many answers provided");
+      return res.status(400).json({ error: "Too many answers provided." });
+    }
+    for (const answer of answers) {
+      if (!Number.isInteger(answer.questionIndex) || answer.questionIndex < 0 || answer.questionIndex >= test.questions.length) {
+        console.log("❌ Invalid question index in answers");
+        return res.status(400).json({ error: "Invalid question index in answers." });
+      }
+      if (answer.selectedOption && !['A', 'B', 'C', 'D'].includes(answer.selectedOption)) {
+        console.log("❌ Invalid selected option in answers");
+        return res.status(400).json({ error: "Selected option must be A, B, C, or D." });
+      }
+    }
+
+    let correct = 0;
+    let wrong = 0;
+    let noAttempt = 0;
+
+    const updatedAnswers = test.questions.map((question, index) => {
+      const answer = answers.find((ans) => ans.questionIndex === index);
+      const selectedOption = answer?.selectedOption || null;
+
+      if (!selectedOption) {
+        noAttempt++;
+      } else if (selectedOption === question.correct) {
+        correct++;
+      } else {
+        wrong++;
+      }
+
+      return {
+        questionIndex: index,
+        selectedOption,
+      };
+    });
+
+    test.candidateAnswers = updatedAnswers;
+    test.results = { correct, wrong, noAttempt };
+    test.status = "Completed";
+    test.completedAt = new Date(Date.UTC(
+      new Date().getUTCFullYear(),
+      new Date().getUTCMonth(),
+      new Date().getUTCDate(),
+      new Date().getUTCHours(),
+      new Date().getUTCMinutes(),
+      new Date().getUTCSeconds()
+    ));
+
+    await test.save();
+    console.log("✅ Test submitted and saved:", test._id);
+
+    return res.status(200).json({
+      message: "Test submitted successfully",
+      results: { correct, wrong, noAttempt, total: test.questions.length },
+    });
+  } catch (error) {
+    console.error("❌ Error in submitTest:", {
+      message: error.message,
+      stack: error.stack,
+    });
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
@@ -191,8 +861,8 @@ const getCandidateOffers = async (req, res) => {
   try {
     const email = req.user.email;
     const candidate = await HiringCandidate.findOne({ email }).populate({
-      path:'offers',
-      options:{sort : {createdAt : -1}}
+      path: 'offers',
+      options: { sort: { createdAt: -1 } }
     });
     if (!candidate) {
       return res.status(404).json({ message: "Candidate not found" });
@@ -257,8 +927,6 @@ const updateOffer = async (req, res) => {
   try {
     const { offerId, status } = req.body;
 
-    console.log("Offer ID:", offerId);
-
     if (!mongoose.Types.ObjectId.isValid(offerId)) {
       return res.status(400).json({ success: false, message: "Invalid offer ID" });
     }
@@ -267,26 +935,79 @@ const updateOffer = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid status value" });
     }
 
-    const offer = await Offer.findById(offerId);
+    const offer = await Offer.findById(offerId).populate("candidate hr");
     if (!offer) {
       return res.status(404).json({ success: false, message: "Offer not found" });
     }
 
-    console.log("Offer:", offer);
-
-    offer.status = status;
-
     if (status === "Accepted") {
-      offer.isEngagementStart = true;
-      offer.offerLetterStatus = "Candidate verbal commitment";
+      const otherOffers = await Offer.find({
+        candidate: offer.candidate._id,
+        _id: { $ne: offerId },
+        status: "Accepted"
+      });
+
+      if (otherOffers.length > 0) {
+        offer.status = "Ghosted";
+        offer.isEngagementStart = false;
+
+        const admin = await User.findById(offer.hr._id);
+        if (!admin) throw new Error("HR admin not found");
+
+        await sendMail(
+          admin.email,
+          admin._id,
+          "Candidate Accepted Another Offer",
+          "offer-ghosted-admin",
+          admin.fullname,
+          null,
+          null,
+          admin.company || "Talentid.app",
+          offer.jobTitle,
+          null,
+          null,
+          null,
+          null,
+          {
+            candidateEmail: offer.candidate.email,
+            offerId: offer._id,
+          }
+        );
+      } else {
+        offer.status = "Accepted";
+        offer.isEngagementStart = true;
+
+        const admin = await User.findById(offer.hr._id);
+        if (!admin) throw new Error("HR admin not found");
+
+        await sendMail(
+          admin.email,
+          admin._id,
+          "Offer Accepted by Candidate",
+          "offer-accepted-admin",
+          admin.fullname,
+          null,
+          null,
+          admin.company || "Talentid.app",
+          offer.jobTitle,
+          null,
+          null,
+          null,
+          null,
+          {
+            candidateEmail: offer.candidate.email,
+            offerId: offer._id,
+          }
+        );
+      }
+    } else if (status === "Ghosted") {
+      offer.status = "Ghosted";
+      offer.isEngagementStart = false;
     } else if (status === "Declined") {
+      offer.status = status;
       offer.isEngagementStart = false;
 
-      if (!offer.hr) {
-        throw new Error("HR data not found in offer");
-      }
-
-      const admin = await User.findById(offer.hr);
+      const admin = await User.findById(offer.hr._id);
       if (!admin) throw new Error("HR admin not found");
 
       await sendMail(
@@ -326,13 +1047,10 @@ const updateOffer = async (req, res) => {
         }
       );
     } else if (status === "Retracted") {
+      offer.status = status;
       offer.isEngagementStart = false;
-      
-      if (!offer.hr) {
-        throw new Error("HR data not found in offer");
-      }
 
-      const admin = await User.findById(offer.hr);
+      const admin = await User.findById(offer.hr._id);
       if (!admin) throw new Error("HR admin not found");
 
       await sendMail(
@@ -371,6 +1089,8 @@ const updateOffer = async (req, res) => {
           offerId: offer._id,
         }
       );
+    } else {
+      offer.status = status;
     }
 
     await offer.save();
@@ -393,15 +1113,14 @@ const updateOffer = async (req, res) => {
     });
   }
 };
-// In your offer controller file (e.g., offerController.js)
-export const updateShowStatus = async (req, res) => {
+
+const updateShowStatus = async (req, res) => {
   try {
     const { offerId, showOffer } = req.body;
 
-    // Validate input
     if (!offerId || showOffer === undefined) {
-      return res.status(400).json({ 
-        message: "Offer ID and showOffer status are required" 
+      return res.status(400).json({
+        message: "Offer ID and showOffer status are required"
       });
     }
 
@@ -410,22 +1129,22 @@ export const updateShowStatus = async (req, res) => {
     const offer = await Offer.findByIdAndUpdate(
       offerId,
       updateData,
-      { new: true } // Return the updated document
+      { new: true }
     );
 
     if (!offer) {
       return res.status(404).json({ message: "Offer not found" });
     }
 
-    res.status(200).json({ 
-      message: "Offer visibility updated successfully", 
-      offer 
+    res.status(200).json({
+      message: "Offer visibility updated successfully",
+      offer
     });
   } catch (error) {
     console.error("Error updating offer show status:", error);
-    res.status(500).json({ 
-      message: "Error updating offer visibility", 
-      error: error.message 
+    res.status(500).json({
+      message: "Error updating offer visibility",
+      error: error.message
     });
   }
 };
@@ -442,7 +1161,7 @@ const getOfferById = async (req, res) => {
     }
 
     res.status(200).json({
-      message: "Offer fetched successfully",
+      message: ".localhost:3001/offer fetched successfully",
       data: offer,
     });
   } catch (error) {
@@ -470,7 +1189,7 @@ const getDigioToken = async (req, res) => {
   }
 };
 
-const sendOfferRemainder = async(req,res) => {
+const sendOfferRemainder = async (req, res) => {
   try {
     const { offerId } = req.params;
 
@@ -485,20 +1204,20 @@ const sendOfferRemainder = async(req,res) => {
     }
 
     await sendMail(
-      offer.signingPartyEmail, // Candidate email
-      null, // No userId needed
+      offer.signingPartyEmail,
+      null,
       "Offer Reminder",
-      "offer-reminder", 
-      offer.candidate?.name || "Candidate", // Fullname (candidate name)
-      null, // Credits (not applicable)
-      offer.candidate?.name || "Candidate", // Candidate name
-      admin.company || "Talentid.app", // Company name
-      offer.jobTitle, // Job title
-      offer.offerLetterLink, // Offer letter link
-      offer.joiningDate ? offer.joiningDate.toISOString().split("T")[0] : null, // Joining date
-      offer.expirationDate ? offer.expirationDate.toISOString().split("T")[0] : null, // Expiry date
-      null, 
-      {} 
+      "offer-reminder",
+      offer.candidate?.name || "Candidate",
+      null,
+      offer.candidate?.name || "Candidate",
+      admin.company || "Talentid.app",
+      offer.jobTitle,
+      offer.offerLetterLink,
+      offer.joiningDate ? offer.joiningDate.toISOString().split("T")[0] : null,
+      offer.expirationDate ? offer.expirationDate.toISOString().split("T")[0] : null,
+      null,
+      {}
     );
 
     res.status(200).json({ success: true, message: "Email sent successfully" });
@@ -506,8 +1225,7 @@ const sendOfferRemainder = async(req,res) => {
     console.error("Error sending offer email:", error);
     res.status(500).json({ success: false, message: "Failed to send email", error: error.message });
   }
-}
-
+};
 
 export {
   createOffer,
@@ -519,5 +1237,10 @@ export {
   getOfferById,
   handleDigioWebhook,
   getDigioToken,
-  sendOfferRemainder
+  sendOfferRemainder,
+  generateTest,
+  submitTest,
+  getTest,
+  updateShowStatus,
+  scheduleTests
 };

@@ -4,27 +4,19 @@ import User from "../models/user.model.js";
 
 import { sendMail } from "../utils/mail.js";
 
-import jwt from "jsonwebtoken";
-
-import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
-
 import axios from 'axios';
 
 import AdditionalDetails from "../models/additionalDetails.model.js";
-
-import OptForm from "../models/opt.model.js";
 
 import Counter from "../models/count.model.js";
 
 import Candidate from "../models/candidate.model.js";
 
-import { emailType, getDateDifference, user_role } from "../utils/data.js";
+import { getDateDifference, user_role } from "../utils/data.js";
 
-import { allCompaniesEndpoint } from "../utils/data.js";
 import Offer from "../models/offer.model.js";
+
 import HiringCandidate from "../models/hiringCandidate.model.js";
-
-
 
 const fetchAppliedCompaniesFromScreenit = async (email, token) => {
   try {
@@ -108,8 +100,6 @@ const fetchUserDataFromCompanies = async (email, token) => {
 const filterCandidateData = (companiesData) =>
   companiesData.filter((company) => getDateDifference(company.appliedAt));
 
-
-
 const searchUserInfo = async (req, res) => {
   try {
     console.log("User ID:", req.user.id);
@@ -181,7 +171,6 @@ const updateUserData = async (req, res) => {
   console.log("Inside updateUserData");
 
   try {
-    // Destructure and provide default values
     const {
       adminUserId,
       userId,
@@ -189,20 +178,41 @@ const updateUserData = async (req, res) => {
       email = null,
       phone = null,
       company = null,
+      companySize = null,
+      industry = null,
+      designation = null,
       role = null,
+      verifiedDocuments = null,
+      isEmailVerified = null,
       isVerified = null,
       credits = null,
+      subscriptionPlan = null,
       address = null,
       gender = null,
       dateOfBirth = null,
       nationality = null,
       maritalStatus = null,
-      bio = null
+      bio = null,
     } = req.body;
 
-    console.log("Request data:", adminUserId, userId, fullname, email, phone, company, role, isVerified, credits);
+    console.log("Request data:", {
+      adminUserId,
+      userId,
+      fullname,
+      email,
+      phone,
+      company,
+      companySize,
+      industry,
+      designation,
+      role,
+      verifiedDocuments,
+      isEmailVerified,
+      isVerified,
+      credits,
+      subscriptionPlan,
+    });
 
-    // Validate that clientUserId is provided
     if (!userId) {
       return res.status(400).json({
         message: "User ID is required",
@@ -211,90 +221,192 @@ const updateUserData = async (req, res) => {
       });
     }
 
-    // Fetch admin and client user records
-    const adminUser = await User.findById(adminUserId);
-    const clientUser = await User.findById(userId).populate('additionalDetails');;
-
-    // Check if the client user exists
-
-    if (!clientUser) {
-      return res.status(404).json({
-        message: "Client user ID not found",
+    if (!adminUserId) {
+      return res.status(400).json({
+        message: "Admin User ID is required",
         error: null,
         data: null,
       });
     }
 
-    // Check if the admin user has the required role to make certain updates
-
-    // Create an object to store the fields that need to be updated
-    const updateFields = {};
-
-    // Fields that can be updated by both regular users and admin
-    if (fullname !== null) {
-
-      updateFields.fullname = fullname;
-      updateFields.userImage = `https://api.dicebear.com/5.x/initials/svg?seed=${fullname}`
-
+    if (email !== null) {
+      return res.status(400).json({
+        message: "Invalid email format",
+        error: null,
+        data: null,
+      });
     }
 
-    if (phone !== null) updateFields.phone = phone;
-    if (address) clientUser.additionalDetails.address = address;
-    if (gender) clientUser.additionalDetails.gender = gender;
-    if (dateOfBirth) clientUser.additionalDetails.dateOfBirth = dateOfBirth;
-    if (nationality) clientUser.additionalDetails.nationality = nationality;
-    if (maritalStatus) clientUser.additionalDetails.maritalStatus = maritalStatus;
-    if (bio) clientUser.additionalDetails.bio = bio;
+    const adminUser = await User.findById(adminUserId);
+    const clientUser = await User.findById(userId).populate("additionalDetails");
+
+    if (!adminUser) {
+      return res.status(404).json({
+        message: "Admin user not found",
+        error: null,
+        data: null,
+      });
+    }
+
+    if (!clientUser) {
+      return res.status(404).json({
+        message: "Client user not found",
+        error: null,
+        data: null,
+      });
+    }
+
+    // Create update objects
+    const updateFields = {};
+    const additionalDetailsUpdates = {};
+
+    // Fields that can be updated by both regular users and admins
+    if (fullname !== null) {
+      if (!fullname.trim()) {
+        return res.status(400).json({
+          message: "Full name cannot be empty",
+          error: null,
+          data: null,
+        });
+      }
+      updateFields.fullname = fullname.trim();
+      // Only update userImage if explicitly desired
+      // updateFields.userImage = `https://api.dicebear.com/5.x/initials/svg?seed=${fullname.trim()}`;
+    }
+
+    if (phone !== null) {
+      if (phone && !/^\d{10}$/.test(phone)) {
+        return res.status(400).json({
+          message: "Phone must be a 10-digit number",
+          error: null,
+          data: null,
+        });
+      }
+      updateFields.phone = phone;
+    }
+
+    // Additional details fields
+    if (address !== null) additionalDetailsUpdates.address = address;
+    if (gender !== null) additionalDetailsUpdates.gender = gender;
+    if (dateOfBirth !== null) additionalDetailsUpdates.dateOfBirth = dateOfBirth;
+    if (nationality !== null) additionalDetailsUpdates.nationality = nationality;
+    if (maritalStatus !== null) additionalDetailsUpdates.maritalStatus = maritalStatus;
+    if (bio !== null) additionalDetailsUpdates.bio = bio;
 
     // Admin-only fields
-    if (adminUser && adminUser.role === "Admin") {
-
-      console.log("admin user ke andar ")
+    if (["Admin", "Super_Admin"].includes(adminUser.role)) {
       if (email !== null) updateFields.email = email;
       if (company !== null) updateFields.company = company;
+      if (companySize !== null) updateFields.companySize = companySize;
+      if (industry !== null) updateFields.industry = industry;
+      if (designation !== null) updateFields.designation = designation;
       if (role !== null) updateFields.role = role;
-
-      if (credits !== null) {
-        updateFields.credits = Number(credits);
-        try {
-          await sendMail(clientUser.email, null, "Credits added to your account", "credits", clientUser.fullname, updateFields.credits);
-        } catch (error) {
-          console.error("Error sending credits email:", error.message);
-        }
-      }
-
+      if (verifiedDocuments !== null) updateFields.verifiedDocuments = verifiedDocuments;
+      if (isEmailVerified !== null) updateFields.isEmailVerified = isEmailVerified;
       if (isVerified !== null) {
-
-        console.log("hellow ");
         updateFields.isVerified = isVerified;
         try {
-          await sendMail(clientUser.email, null, "User Verification", "verify", clientUser.fullname, null);
-        } catch (error) {
-          console.error("Error sending verification email:", error.message);
+          await sendMail(
+            clientUser.email,
+            null,
+            "User Verification",
+            "verify",
+            clientUser.fullname,
+            null
+          );
+        } catch (emailError) {
+          console.error("Error sending verification email:", emailError.message);
+          // Optionally include in response
+          // updateFields.emailError = "Failed to send verification email";
         }
+      }
+      if (credits !== null) {
+        const creditsNum = Number(credits);
+        if (isNaN(creditsNum) || creditsNum < 0) {
+          return res.status(400).json({
+            message: "Credits must be a non-negative number",
+            error: null,
+            data: null,
+          });
+        }
+        updateFields.credits = creditsNum;
+        try {
+          await sendMail(
+            clientUser.email,
+            null,
+            "Credits added to your account",
+            "credits",
+            clientUser.fullname,
+            creditsNum
+          );
+        } catch (emailError) {
+          console.error("Error sending credits email:", emailError.message);
+          // Optionally include in response
+          // updateFields.emailError = "Failed to send credits email";
+        }
+      }
+      if (subscriptionPlan !== null) updateFields.subscriptionPlan = subscriptionPlan;
+    } else {
+      // Non-admin trying to update admin-only fields
+      if (
+        email !== null ||
+        company !== null ||
+        companySize !== null ||
+        industry !== null ||
+        designation !== null ||
+        role !== null ||
+        verifiedDocuments !== null ||
+        isEmailVerified !== null ||
+        isVerified !== null ||
+        credits !== null ||
+        subscriptionPlan !== null
+      ) {
+        return res.status(403).json({
+          message: "Unauthorized to update admin-only fields",
+          error: null,
+          data: null,
+        });
       }
     }
 
-    // Save changes to the nested additional details if any field was modified
-
-    await clientUser.additionalDetails.save();
-    console.log("Updated fields:", updateFields);
+    // Update additionalDetails if needed
+    if (Object.keys(additionalDetailsUpdates).length > 0) {
+      if (!clientUser.additionalDetails) {
+        // Create new additionalDetails document if it doesn't exist
+        const AdditionalDetails = require("../models/AdditionalDetails"); // Adjust path
+        clientUser.additionalDetails = await AdditionalDetails.create(additionalDetailsUpdates);
+      } else {
+        // Update existing additionalDetails
+        await clientUser.additionalDetails.updateOne(additionalDetailsUpdates);
+      }
+    }
 
     // Update the client user with the specified fields
-    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, {
-      new: true, // Return the updated document
-      runValidators: true, // Ensure the updated data adheres to the schema
-    }).populate('additionalDetails');
+    console.log("Updating fields:", updateFields);
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      {
+        new: true,
+        runValidators: true,
+      }
+    ).populate("additionalDetails");
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        message: "Failed to update user",
+        error: null,
+        data: null,
+      });
+    }
 
     return res.status(200).json({
       message: "User updated successfully",
       error: null,
       data: updatedUser,
     });
-
   } catch (error) {
     console.error("Error in updateUserData:", error.message);
-
     return res.status(500).json({
       message: "Error updating user",
       data: null,
@@ -440,22 +552,14 @@ const getUserCredits = async (req, res) => {
 
 
 const fetchAllusers = async (req, res) => {
-
   try {
-
     const users = await User.find({}).select('-token -password -searchHistory'); // Exclude token and password
     // Exclude searchHistory
-
-
     return res.status(200).json({
-
       message: "users fetched successfully",
       data: users,
       error: null,
-
-    })
-
-
+    });
   } catch (error) {
 
     console.log("error", error);

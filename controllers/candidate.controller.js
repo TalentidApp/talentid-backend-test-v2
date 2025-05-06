@@ -102,9 +102,6 @@ async function fetchAllOfferLetterOfSpecificCandidate() {
     }
 }
 
-
-
-
 import axios from 'axios';
 import FormData from 'form-data';
 import fs from 'fs';
@@ -141,7 +138,7 @@ async function E_SignDocument(req, res) {
   try {
     console.log('📌 Starting eSign request...');
 
-    const { pdfUrl } = req.body; // Expect pdfUrl in request body
+    const { pdfUrl , email , name } = req.body; // Expect pdfUrl in request body
     if (!pdfUrl) {
       return res.status(400).json({ error: 'No PDF URL provided' });
     }
@@ -171,8 +168,8 @@ async function E_SignDocument(req, res) {
       will_self_sign: false,
       signers: [
         {
-          identifier: 'chavarahul7@gmail.com', // Replace with dynamic signer email if needed
-          name: 'Chava Rahul',
+          identifier: email, // Replace with dynamic signer email if needed
+          name: name,
           sign_type: 'electronic',
           reason: 'Offer Letter Signing',
         },

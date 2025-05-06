@@ -25,7 +25,6 @@ import logSearch from "../middlewares/searchHistory.middleware.js";
 const router = express.Router();
 
 router.post("/update-user", protectRoute, updateProfile);
-
 router.post("/user-info",protectRoute,searchUserInfo); 
 
 router.post("/invite",protectRoute, sendInvite)

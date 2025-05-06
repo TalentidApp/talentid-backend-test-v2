@@ -9,13 +9,10 @@ import protectRoute from "../middlewares/protectRoute.middleware.js";
 import User from "../models/user.model.js";
 const router = express.Router();
 
-// Create a new notification
 router.post("/", protectRoute, createNotification);
 
-// Get all notifications for a user with populated data
 router.get("/all/:userId", protectRoute, getAllNotifications);
 
-// Get user's notification preferences
 router.get("/preferences/:userId", protectRoute, async (req, res) => {
   try {
     const userId = req.params.userId === "me" ? req.user.id : req.params.userId;
@@ -28,7 +25,6 @@ router.get("/preferences/:userId", protectRoute, async (req, res) => {
   }
 });
 
-// Update user's notification preferences
 router.put("/preferences/:userId", protectRoute, updateNotificationPreference);
 
 export default router;
