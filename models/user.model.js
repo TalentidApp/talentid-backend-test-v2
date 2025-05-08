@@ -87,6 +87,8 @@ const userSchema = new mongoose.Schema(
       },
     ],
     activityLogs: [{ action: String, timestamp: { type: Date, default: Date.now } }],
+    feedbackReceived: [{ type: mongoose.Schema.Types.ObjectId, ref: "Feedback" }],
+    feedbackGiven: [{ type: mongoose.Schema.Types.ObjectId, ref: "Feedback" }],
   },
   { timestamps: true }
 );
@@ -117,6 +119,8 @@ userSchema.pre("save", function (next) {
     this.inviteLinks = undefined;
     this.documents = undefined;
     this.verifiedDocuments = undefined;
+    this.feedbackReceived = undefined;
+    this.feedbackGiven = undefined;
   }
   next();
 });

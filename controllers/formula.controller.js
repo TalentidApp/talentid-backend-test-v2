@@ -35,8 +35,8 @@ export const saveFormulaData = async (req, res) => {
 
 export const checkFormulaStatus = async (req, res) => {
   try {
-    const { candidateId } = req.body;
-
+    const { candidateId } = req.params;
+    console.log(candidateId)
     const candidate = await HiringCandidate.findById(candidateId);
     if (!candidate) {
       return res.status(404).json({ message: "Candidate not found" });
@@ -70,11 +70,11 @@ export const checkFormulaStatus = async (req, res) => {
       assessmentScore,
       formulaData: formula
         ? {
-            locationPreferences: formula.locationPreferences,
-            expectedCTC: formula.expectedCTC,
-            companySizePreferences: formula.companySizePreferences,
-            rolePreferences: formula.rolePreferences,
-          }
+          locationPreferences: formula.locationPreferences,
+          expectedCTC: formula.expectedCTC,
+          companySizePreferences: formula.companySizePreferences,
+          rolePreferences: formula.rolePreferences,
+        }
         : null,
       candidateId,
     });
@@ -87,7 +87,7 @@ export const checkFormulaStatus = async (req, res) => {
 export const updateFormulaData = async (req, res) => {
   try {
     const { locationPreferences, expectedCTC, companySizePreferences, rolePreferences } = req.body;
-    const candidateId = req.user._id;
+    const candidateId = req.user.id;
 
     const formulaData = await CandidateFormula.findOne({ candidateId });
     if (!formulaData) {

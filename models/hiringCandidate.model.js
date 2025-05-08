@@ -5,11 +5,12 @@ const hiringCandidateSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, unique: true, required: true },
   password: { type: String },
+  pan: { type: String, unique: true },
   phoneNo: {
     type: String,
     validate: {
       validator: function (v) {
-        return /^\+?[1-9]\d{1,14}$/.test(v); 
+        return /^\+?[1-9]\d{1,14}$/.test(v);
       },
       message: props => `${props.value} is not a valid phone number!`
     }
@@ -34,7 +35,9 @@ const hiringCandidateSchema = new mongoose.Schema({
   otp: { type: String },
   otpExpires: { type: Date },
   resetPasswordToken: { type: String },
-  resetPasswordTokenExpires: { type: Date }
+  resetPasswordTokenExpires: { type: Date },
+  feedbackReceived: [{ type: mongoose.Schema.Types.ObjectId, ref: "Feedback" }],
+  feedbackGiven: [{ type: mongoose.Schema.Types.ObjectId, ref: "Feedback" }],
 }, { timestamps: true });
 
 const HiringCandidate = mongoose.model("HiringCandidate", hiringCandidateSchema);

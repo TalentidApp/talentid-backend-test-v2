@@ -2,6 +2,7 @@ import HiringCandidate from "../models/hiringCandidate.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { sendMail } from "../utils/mail.js";
+import axios from "axios";
 
 const generateOTP = () => {
     return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit OTP
@@ -57,26 +58,64 @@ const candidateLogin = async (req, res) => {
 
 const candidateSignup = async (req, res) => {
     try {
-        const { fullName, email, password } = req.body;
-        if (!fullName || !email || !password) {
-            return res.status(400).json({ message: "All fields are required" });
+        const { fullName, email, password, pan } = req.body;
+        if (!fullName || !email || !password || !pan) {
+            return res.status(400).json({ message: "All fields are required, including PAN" });
         }
 
-        const existingCandidate = await HiringCandidate.findOne({ email });
+        const existingCandidate = await HiringCandidate.findOne({
+            $or: [{ email }, { pan: await bcrypt.hash(pan, 10) }],
+        });
         if (existingCandidate) {
-            return res.status(400).json({ message: "Email already in use" });
+            return res.status(400).json({ message: "Email or PAN already in use" });
+        }
+
+        const cashfreeResponse = await axios.post(
+            'https://sandbox.cashfree.com/verification/pan',
+            {
+                pan,
+                name: fullName,
+            },
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-client-id': process.env.CASH_FREE_PAN_ID,
+                    'x-client-secret': process.env.CASH_FREE_PAN_SECRET,
+                },
+            }
+        );
+
+        if (cashfreeResponse.status !== 200 || !cashfreeResponse.data.valid) {
+            return res.status(400).json({ message: 'Invalid PAN or verification failed' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPan = await bcrypt.hash(pan, 10);
+
         const newCandidate = new HiringCandidate({
             name: fullName,
             email,
             password: hashedPassword,
+            pan: hashedPan,
         });
 
         await newCandidate.save();
 
-        await sendMail(email, null, "Welcome! Your Sign-In to Talent ID Was Successful 🎉", "candidate-signup", fullName, null, null, null, null, null, null, null, null)
+        await sendMail(
+            email,
+            null,
+            "Welcome! Your Sign-In to Talent ID Was Successful 🎉",
+            "candidate-signup",
+            fullName,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
 
         return res.status(201).json({ message: "Candidate registered successfully" });
     } catch (error) {
