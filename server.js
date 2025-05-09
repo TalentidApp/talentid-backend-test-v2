@@ -24,18 +24,16 @@ import candidateRoutes from "./routes/candidate.route.js";
 import adminRoutes from "./routes/admin.route.js";
 import todoRoute from "./routes/todo.route.js";
 import companyRoutes from "./routes/company.routes.js";
-import formulaRoutes from './routes/formula.route.js'
+import formulaRoutes from './routes/formula.route.js';
+import feedBackRoutes from './routes/feedback.route.js';
 
 dotenv.config();
 
-// Connect to the database
 connectDB();
 
-// Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(bodyParser.json({ limit: "50mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -70,7 +68,6 @@ app.use(session({
   },
 }));
 
-// Routes
 app.use("/api/users", userRoutes);
 app.use("/api/payments", paymentRoute);
 app.use("/api/orders", OrderRoutes);
@@ -86,6 +83,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/todo", todoRoute);
 app.use("/api/company", companyRoutes);
 app.use("/api/formula", formulaRoutes);
+app.use("/api/feedback",feedBackRoutes)
 
 app.get("/", (req, res) => {
   res.send("Welcome to Talent ID API");

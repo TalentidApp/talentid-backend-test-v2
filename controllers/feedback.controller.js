@@ -16,12 +16,12 @@ export const submitFeedback = async (req, res) => {
 
     const reviewer = await (reviewerModel === "User" ? User : HiringCandidate).findById(reviewerId);
     if (!reviewer) {
-      return res.status(404).json({ message: `${reviewerModel} not found` });
+      return res.status(404).json({ message: `${reviewerModel} f not found` });
     }
 
     const recipient = await (recipientModel === "User" ? User : HiringCandidate).findById(recipientId);
     if (!recipient) {
-      return res.status(404).json({ message: `${recipientModel} not found` });
+      return res.status(404).json({ message: `${recipientModel} j not found` });
     }
 
     const feedback = new Feedback({
