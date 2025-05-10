@@ -79,7 +79,7 @@ const createOffer = async (req, res) => {
     const {
       jobTitle, salary, joiningDate, expiryDate, emailSubject, emailMessage,
       candidateEmail, candidateName, candidatePhoneNo, companyName, digioReqBody,
-      status, resumeData
+      status, resumeData 
     } = req.body;
 
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized access." });
@@ -93,6 +93,8 @@ const createOffer = async (req, res) => {
     const hrId = req.user.id;
     const { offerLetter, candidateResume } = req.files;
 
+    console.log(offerLetter , candidateResume )
+
     const offerLetterUpload = await UploadImageToCloudinary(offerLetter, "Candidate_Offer_Letter");
     if (!offerLetterUpload?.url) throw new Error("Failed to upload offer letter.");
     const offerLetterLink = offerLetterUpload.url;
@@ -100,6 +102,7 @@ const createOffer = async (req, res) => {
     const link = await UploadImageToCloudinary(candidateResume, "resume");
     const resumeLink = link.secure_url;
     if (!resumeLink) throw new Error("Failed to extract skills or upload resume.");
+
 
     let candidate = await HiringCandidate.findOne({ email: candidateEmail }).session(session);
     const skills = resumeData ? JSON.parse(resumeData).skills : [];
@@ -114,7 +117,7 @@ const createOffer = async (req, res) => {
       });
       await candidate.save({ session });
     } else {
-      if (!candidate.resumeLink) candidate.resumeLink = resumeLink;
+       candidate.resumeLink = resumeLink;
       if (skills.length) candidate.skills = [...new Set([...candidate.skills, ...skills])];
     }
 
