@@ -13,7 +13,7 @@ import { v4 as uuidv4 } from "uuid";
 
 const DIGIO_BASE_URL = "https://api-sandbox.digio.in/v2/client/document/upload";
 const BASE64_AUTH = Buffer.from(`${process.env.DIGIO_CLIENT_ID}:${process.env.DIGIO_CLIENT_SECRET}`).toString("base64");
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ;
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 
 const uploadDocumentToDigio = async (reqBody) => {
   try {
@@ -71,6 +71,16 @@ const getDaysDifference = (targetDate) => {
   return Math.ceil((givenDate - currentDate) / (1000 * 60 * 60 * 24));
 };
 
+export const generateRandomPassword = (length) => {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * charset.length);
+    password += charset[randomIndex];
+  }
+  return password;
+};
+
 const createOffer = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -79,7 +89,7 @@ const createOffer = async (req, res) => {
     const {
       jobTitle, salary, joiningDate, expiryDate, emailSubject, emailMessage,
       candidateEmail, candidateName, candidatePhoneNo, companyName, digioReqBody,
-      status, resumeData 
+      status, resumeData
     } = req.body;
 
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized access." });
@@ -93,8 +103,6 @@ const createOffer = async (req, res) => {
     const hrId = req.user.id;
     const { offerLetter, candidateResume } = req.files;
 
-    console.log(offerLetter , candidateResume )
-
     const offerLetterUpload = await UploadImageToCloudinary(offerLetter, "Candidate_Offer_Letter");
     if (!offerLetterUpload?.url) throw new Error("Failed to upload offer letter.");
     const offerLetterLink = offerLetterUpload.url;
@@ -103,10 +111,14 @@ const createOffer = async (req, res) => {
     const resumeLink = link.secure_url;
     if (!resumeLink) throw new Error("Failed to extract skills or upload resume.");
 
-
     let candidate = await HiringCandidate.findOne({ email: candidateEmail }).session(session);
     const skills = resumeData ? JSON.parse(resumeData).skills : [];
+    let generatedPassword = null;
+
     if (!candidate) {
+      generatedPassword = generateRandomPassword(12); 
+      const hashedPassword = await bcrypt.hash(generatedPassword, 10);
+
       candidate = new HiringCandidate({
         name: candidateName || "Unknown",
         email: candidateEmail,
@@ -114,10 +126,11 @@ const createOffer = async (req, res) => {
         resumeLink,
         skills,
         offers: [],
+        password: hashedPassword, // Store hashed password
       });
       await candidate.save({ session });
     } else {
-       candidate.resumeLink = resumeLink;
+      candidate.resumeLink = resumeLink;
       if (skills.length) candidate.skills = [...new Set([...candidate.skills, ...skills])];
     }
 
@@ -150,9 +163,19 @@ const createOffer = async (req, res) => {
     session.endSession();
 
     await sendMail(
-      candidate.email, null, emailSubject, "offer-release",
-      candidateName, null, candidateName, companyName,
-      jobTitle, offerLetterLink, joiningDate, expiryDate
+      candidate.email,
+      null,
+      emailSubject,
+      "offer-release",
+      candidateName,
+      null,
+      candidateName,
+      companyName,
+      jobTitle,
+      offerLetterLink,
+      joiningDate,
+      expiryDate,
+      generatedPassword
     );
 
     return res.status(201).json({ message: "Offer created successfully", offer: newOffer });
@@ -165,7 +188,7 @@ const createOffer = async (req, res) => {
 };
 
 const getRandomHour = () => {
-  return Math.floor(Math.random() * 13) + 8; // 8 to 20 (8 AM to 8 PM)
+  return Math.floor(Math.random() * 13) + 8;
 };
 
 const generateTest = async (req, res, { skipEmail = false } = {}) => {
