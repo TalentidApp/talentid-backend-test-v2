@@ -21,6 +21,7 @@ const offerSchema = new mongoose.Schema(
       default: "Pending",
     },
     joiningDate: { type: Date },
+        currentCTC: { type: Number, default: 0 },
     offerLetterStatus: {
       type: String,
       enum: ["Offer letter released", "Candidate verbal commitment", "Talentid"],
@@ -37,7 +38,7 @@ const offerSchema = new mongoose.Schema(
     authenticationUrl: { type: String },
     signingRequestedOn: { type: Date },
     signingExpiresOn: { type: Date },
-    showOffer: { type: Boolean, default: true }, // New field added
+    showOffer: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

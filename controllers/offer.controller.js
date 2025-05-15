@@ -25,7 +25,7 @@ const uploadDocumentToDigio = async (reqBody) => {
     });
     return response.data;
   } catch (error) {
-    console.error("❌ Digio API Error:", error?.response?.data || error.message);
+    console.error(" Digio API Error:", error?.response?.data || error.message);
     throw new Error("Digio API Error");
   }
 };
@@ -52,7 +52,7 @@ const fetchSkillsFromExternalApi = async (resumeFile) => {
       resumeLink: response.data?.response?.Uploaded_File_URL || "",
     };
   } catch (error) {
-    console.error("❌ Error extracting skills:", error?.response?.data || error.message);
+    console.error(" Error extracting skills:", error?.response?.data || error.message);
     return { skills: [], resumeLink: "" };
   }
 };
@@ -80,7 +80,6 @@ export const generateRandomPassword = (length) => {
   }
   return password;
 };
-
 const createOffer = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -89,7 +88,7 @@ const createOffer = async (req, res) => {
     const {
       jobTitle, salary, joiningDate, expiryDate, emailSubject, emailMessage,
       candidateEmail, candidateName, candidatePhoneNo, companyName, digioReqBody,
-      status, resumeData
+      status, resumeData, currentCTC
     } = req.body;
 
     if (!req.user?.id) return res.status(401).json({ error: "Unauthorized access." });
@@ -116,7 +115,7 @@ const createOffer = async (req, res) => {
     let generatedPassword = null;
 
     if (!candidate) {
-      generatedPassword = generateRandomPassword(12); 
+      generatedPassword = generateRandomPassword(12);
       const hashedPassword = await bcrypt.hash(generatedPassword, 10);
 
       candidate = new HiringCandidate({
@@ -126,7 +125,7 @@ const createOffer = async (req, res) => {
         resumeLink,
         skills,
         offers: [],
-        password: hashedPassword, // Store hashed password
+        password: hashedPassword,
       });
       await candidate.save({ session });
     } else {
@@ -147,6 +146,7 @@ const createOffer = async (req, res) => {
       signingRequestedOn: new Date(),
       signingExpiresOn: new Date(Date.now() + getDaysDifference(expiryDate) * 24 * 60 * 60 * 1000),
       status: status || "Pending",
+      currentCTC: currentCTC ? parseFloat(currentCTC) : 0,
     });
 
     await newOffer.save({ session });
@@ -182,13 +182,88 @@ const createOffer = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error("❌ Error in createOffer:", error.message);
+    console.error(" Error in createOffer:", error.message);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
 
 const getRandomHour = () => {
-  return Math.floor(Math.random() * 13) + 8;
+  return Math.floor(Math.random() * 13) + 8; // 8 AM to 8 PM UTC
+};
+
+// Helper function to convert UTC date to IST and format it
+const formatDateToIST = (date) => {
+  if (!(date instanceof Date) || isNaN(date.getTime())) {
+    console.error("Invalid date provided to formatDateToIST:", date);
+    return "Invalid Date";
+  }
+  return date.toLocaleString("en-US", {
+    timeZone: "Asia/Kolkata",
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "numeric",
+    hour12: true,
+  });
+};
+
+// Simulate scheduling an email to be sent at a specific time
+const scheduleEmailAtTime = (emailData, scheduledDate) => {
+  if (!(scheduledDate instanceof Date) || isNaN(scheduledDate.getTime())) {
+    console.error("Invalid scheduledDate for email scheduling:", scheduledDate);
+    return;
+  }
+
+  const now = new Date();
+  const delay = scheduledDate.getTime() - now.getTime();
+
+  if (delay <= 0) {
+    console.log(`⏰ Email scheduled for ${formatDateToIST(scheduledDate)} is in the past, sending immediately`);
+    sendMail(
+      emailData.to,
+      emailData.cc,
+      emailData.subject,
+      emailData.template,
+      emailData.name,
+      emailData.email,
+      emailData.candidateName,
+      emailData.companyName,
+      emailData.jobTitle,
+      emailData.offerLetterLink,
+      emailData.joiningDate,
+      emailData.expiryDate,
+      emailData.generatedPassword,
+      emailData.additionalData
+    ).catch(error => {
+      console.error(` Failed to send scheduled email for ${formatDateToIST(scheduledDate)}:`, error.message);
+    });
+    return;
+  }
+
+  console.log(`⏰ Scheduling email for ${formatDateToIST(scheduledDate)}, delay: ${delay / 1000} seconds`);
+  setTimeout(() => {
+    console.log(`📧 Sending scheduled email for ${formatDateToIST(scheduledDate)}`);
+    sendMail(
+      emailData.to,
+      emailData.cc,
+      emailData.subject,
+      emailData.template,
+      emailData.name,
+      emailData.email,
+      emailData.candidateName,
+      emailData.companyName,
+      emailData.jobTitle,
+      emailData.offerLetterLink,
+      emailData.joiningDate,
+      emailData.expiryDate,
+      emailData.generatedPassword,
+      emailData.additionalData
+    ).catch(error => {
+      console.error(` Failed to send scheduled email for ${formatDateToIST(scheduledDate)}:`, error.message);
+    });
+  }, delay);
 };
 
 const generateTest = async (req, res, { skipEmail = false } = {}) => {
@@ -199,20 +274,20 @@ const generateTest = async (req, res, { skipEmail = false } = {}) => {
 
     // Validate required fields
     if (!candidateEmail || !candidateName || !jobTitle || !questionCount || !scheduledDate) {
-      console.log("❌ Validation failed: Missing required fields");
+      console.log(" Validation failed: Missing required fields");
       return res.status(400).json({ error: "Missing required fields: candidateEmail, candidateName, jobTitle, questionCount, and scheduledDate are required." });
     }
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(candidateEmail)) {
-      console.log("❌ Invalid email format");
+      console.log(" Invalid email format");
       return res.status(400).json({ error: "Invalid email format." });
     }
 
     // Validate questionCount
     if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 50) {
-      console.log("❌ Invalid question count");
+      console.log(" Invalid question count");
       return res.status(400).json({ error: "Question count must be an integer between 1 and 50." });
     }
 
@@ -227,17 +302,17 @@ const generateTest = async (req, res, { skipEmail = false } = {}) => {
       new Date().getUTCSeconds()
     ));
     if (isNaN(scheduled.getTime()) || scheduled <= now) {
-      console.log("❌ Invalid or past scheduled date");
+      console.log(" Invalid or past scheduled date");
       return res.status(400).json({ error: "Scheduled date must be a valid future date." });
     }
 
     // Validate skills
     if (skills && (!Array.isArray(skills) || skills.some(skill => typeof skill !== 'string' || skill.trim() === ''))) {
-      console.log("❌ Invalid skills format");
+      console.log(" Invalid skills format");
       return res.status(400).json({ error: "Skills must be an array of non-empty strings." });
     }
 
-    console.log("✅ Validation passed");
+    console.log(" Validation passed");
 
     // Check candidate existence
     console.log("🔍 Searching for candidate with email:", candidateEmail);
@@ -250,9 +325,9 @@ const generateTest = async (req, res, { skipEmail = false } = {}) => {
         skills: skills || [],
       });
       await candidate.save();
-      console.log("✅ Candidate created:", candidate._id);
+      console.log(" Candidate created:", candidate._id);
     } else {
-      console.log("✅ Candidate found:", candidate._id);
+      console.log(" Candidate found:", candidate._id);
     }
 
     // Prepare Anthropic API prompt
@@ -304,10 +379,10 @@ const generateTest = async (req, res, { skipEmail = false } = {}) => {
         },
       }
     ).catch(error => {
-      console.error("❌ Anthropic API error:", error.response?.data || error.message);
+      console.error(" Anthropic API error:", error.response?.data || error.message);
       throw new Error(`Failed to generate questions from Anthropic API: ${error.response?.data?.error?.message || error.message}`);
     });
-    console.log("✅ Anthropic API response received");
+    console.log(" Anthropic API response received");
 
     // Log raw response for debugging
     const rawResponse = response.data.content[0].text;
@@ -342,9 +417,9 @@ const generateTest = async (req, res, { skipEmail = false } = {}) => {
           throw new Error("Invalid question structure: Missing required fields or incorrect format");
         }
       }
-      console.log("✅ Parsed questions:", parsedQuestions);
+      console.log(" Parsed questions:", parsedQuestions);
     } catch (error) {
-      console.error("❌ Error parsing Anthropic response:", error.message);
+      console.error(" Error parsing Anthropic response:", error.message);
       return res.status(500).json({
         error: "Failed to parse test questions.",
         details: error.message,
@@ -378,41 +453,49 @@ const generateTest = async (req, res, { skipEmail = false } = {}) => {
     });
 
     await test.save();
-    console.log("✅ Test saved to MongoDB with ID:", test._id);
+    console.log(" Test saved to MongoDB with ID:", test._id);
 
     if (!skipEmail) {
-      console.log("📧 Sending test invitation email to candidate:", candidateEmail);
-      await sendMail(
-        candidateEmail,
-        null,
-        `Technical Assessment for ${jobTitle}`,
-        "test-invitation",
-        candidateName,
-        null,
-        candidateName,
-        "Talentid.app",
-        jobTitle,
-        testLink,
-        null,
-        null,
-        null,
+      const scheduledIST = formatDateToIST(scheduled);
+      if (scheduledIST === "Invalid Date") {
+        console.error("Invalid scheduled date for email:", scheduled);
+        throw new Error("Invalid scheduled date for test invitation email.");
+      }
+      console.log("📧 Scheduling test invitation email to candidate:", candidateEmail);
+      scheduleEmailAtTime(
         {
-          scheduledDate,
-          questionCount,
-          duration: 60,
-          skills: skills || [],
-        }
-      ).catch(error => {
-        console.error("❌ Failed to send test invitation email:", error.message);
-      });
-      console.log("✅ Test invitation email sent successfully");
+          to: candidateEmail,
+          cc: null,
+          subject: `Technical Assessment for ${jobTitle}`,
+          template: "test-invitation",
+          name: candidateName,
+          email: null,
+          candidateName,
+          companyName: "Talentid.app",
+          jobTitle,
+          offerLetterLink: null,
+          joiningDate: null,
+          expiryDate: null,
+          generatedPassword: null,
+          additionalData: {
+            scheduledDate: scheduledIST,
+            questionCount,
+            duration: 60,
+            skills: skills || [],
+            testLink,
+            timezoneNote: "All times are in IST (Asia/Kolkata). Please ensure your device's timezone is set correctly."
+          }
+        },
+        scheduled
+      );
+      console.log(" Test invitation email scheduled for:", scheduledIST);
     } else {
-      console.log("📧 Skipping test invitation email");
+      console.log("📧 Skipping test invitation email scheduling");
     }
 
-    return res.status(200).json({ message: "Test generated successfully", testLink, testId, scheduledDate });
+    return res.status(200).json({ message: "Test generated successfully", testLink, testId, scheduledDate: scheduled.toISOString() });
   } catch (error) {
-    console.error("❌ Error in generateTest:", {
+    console.error(" Error in generateTest:", {
       message: error.message,
       stack: error.stack,
       response: error.response?.data,
@@ -428,36 +511,31 @@ const scheduleTests = async (req, res) => {
   try {
     const { candidateEmail, candidateName, jobTitle, skills, questionCount, frequency, joiningDate } = req.body;
 
-    // Validate required fields
     if (!candidateEmail || !candidateName || !jobTitle || !questionCount || !frequency || !joiningDate) {
-      console.log("❌ Validation failed: Missing required fields");
+      console.log(" Validation failed: Missing required fields");
       return res.status(400).json({ error: "Missing required fields: candidateEmail, candidateName, jobTitle, questionCount, frequency, and joiningDate are required." });
     }
 
-    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(candidateEmail)) {
-      console.log("❌ Invalid email format");
+      console.log("Invalid email format");
       return res.status(400).json({ error: "Invalid email format." });
     }
 
-    // Validate questionCount and frequency
     if (!Number.isInteger(questionCount) || questionCount < 1 || questionCount > 50) {
-      console.log("❌ Invalid question count");
+      console.log(" Invalid question count");
       return res.status(400).json({ error: "Question count must be an integer between 1 and 50." });
     }
     if (!Number.isInteger(frequency) || frequency < 1 || frequency > 6) {
-      console.log("❌ Invalid frequency");
+      console.log(" Invalid frequency");
       return res.status(400).json({ error: "Frequency must be an integer between 1 and 6." });
     }
 
-    // Validate skills
     if (skills && (!Array.isArray(skills) || skills.length === 0 || skills.some(skill => typeof skill !== 'string' || skill.trim() === ''))) {
-      console.log("❌ Invalid skills format");
+      console.log(" Invalid skills format");
       return res.status(400).json({ error: "Skills must be a non-empty array of non-empty strings." });
     }
 
-    // Validate joining date
     const joining = new Date(joiningDate);
     const today = new Date(Date.UTC(
       new Date().getUTCFullYear(),
@@ -465,11 +543,10 @@ const scheduleTests = async (req, res) => {
       new Date().getUTCDate()
     ));
     if (isNaN(joining.getTime()) || joining <= today) {
-      console.log("❌ Invalid joining date");
+      console.log(" Invalid joining date");
       return res.status(400).json({ error: "Joining date must be a valid future date." });
     }
 
-    // Check candidate existence
     console.log("🔍 Searching for candidate with email:", candidateEmail);
     let candidate = await HiringCandidate.findOne({ email: candidateEmail });
     if (!candidate) {
@@ -480,26 +557,24 @@ const scheduleTests = async (req, res) => {
         skills: skills || [],
       });
       await candidate.save();
-      console.log("✅ Candidate created:", candidate._id);
+      console.log(" Candidate created:", candidate._id);
     } else {
-      console.log("✅ Candidate found:", candidate._id);
+      console.log(" Candidate found:", candidate._id);
     }
 
-    // Check for existing schedule to prevent duplicate emails
     const existingSchedule = await TestSchedule.findOne({
       candidate: candidate._id,
       jobTitle,
       status: 'Pending',
     });
     if (existingSchedule) {
-      console.log("❌ Existing pending schedule found for candidate");
+      console.log(" Existing pending schedule found for candidate");
       return res.status(400).json({ error: "A pending test schedule already exists for this candidate and job title." });
     }
 
-    // Calculate test dates within 8 AM to 8 PM UTC
     const diffDays = Math.ceil((joining - today) / (1000 * 60 * 60 * 24));
     if (diffDays < frequency) {
-      console.log("❌ Insufficient time for test frequency");
+      console.log(" Insufficient time for test frequency");
       return res.status(400).json({ error: "Joining date is too soon for the requested test frequency." });
     }
     const interval = Math.floor(diffDays / (frequency + 1));
@@ -507,12 +582,11 @@ const scheduleTests = async (req, res) => {
     for (let i = 1; i <= frequency; i++) {
       const testDate = new Date(today.getTime() + interval * i * 24 * 60 * 60 * 1000);
       const hour = getRandomHour();
-      testDate.setUTCHours(hour, 0, 0, 0); // Store in UTC
+      testDate.setUTCHours(hour, 0, 0, 0); 
       testDates.push(testDate);
     }
     console.log("📅 Calculated test dates (UTC):", testDates);
 
-    // Validate test dates
     const now = new Date(Date.UTC(
       new Date().getUTCFullYear(),
       new Date().getUTCMonth(),
@@ -523,12 +597,11 @@ const scheduleTests = async (req, res) => {
     ));
     for (const testDate of testDates) {
       if (testDate <= now) {
-        console.log("❌ Test date is in the past or too soon:", testDate);
+        console.log(" Test date is in the past or too soon:", testDate);
         return res.status(400).json({ error: "Test dates must be in the future." });
       }
     }
 
-    // Generate tests and collect valid results
     const testLinks = [];
     const testIds = [];
     const failedTests = [];
@@ -559,26 +632,24 @@ const scheduleTests = async (req, res) => {
         if (testData?.testId && testData?.testLink) {
           testIds.push(testData.testId);
           testLinks.push(testData.testLink);
-          console.log(`✅ Test ${index + 1} generated with ID: ${testData.testId}`);
+          console.log(` Test ${index + 1} generated with ID: ${testData.testId}`);
         } else {
           throw new Error("Invalid test generation response");
         }
       } catch (error) {
-        console.error(`❌ Failed to generate test ${index + 1}:`, error.message);
+        console.error(` Failed to generate test ${index + 1}:`, error.message);
         failedTests.push({ testNumber: index + 1, date: testDate, error: error.message });
       }
     }
 
-    // Check if any tests were generated successfully
     if (testIds.length === 0) {
-      console.log("❌ No tests generated successfully");
+      console.log(" No tests generated successfully");
       return res.status(500).json({
         error: "Failed to generate any tests.",
         details: failedTests,
       });
     }
 
-    // Save test schedule
     console.log("💾 Saving test schedule to MongoDB...");
     const testSchedule = new TestSchedule({
       candidate: candidate._id,
@@ -593,17 +664,28 @@ const scheduleTests = async (req, res) => {
     });
 
     await testSchedule.save().catch(error => {
-      console.error("❌ Error saving test schedule:", error.message);
+      console.error(" Error saving test schedule:", error.message);
       throw new Error(`Failed to save test schedule: ${error.message}`);
     });
-    console.log("✅ Test schedule saved:", testSchedule._id);
+    console.log(" Test schedule saved:", testSchedule._id);
 
-    // Prepare formatted test schedule for email
-    const formattedTestDates = testDates.slice(0, testIds.length).map((date, index) => ({
-      date: date.toISOString(),
-      link: testLinks[index],
-      number: index + 1,
-    }));
+    const nowLocal = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
+    const nowLocalDate = new Date(nowLocal);
+    const formattedTestDates = testDates.slice(0, testIds.length).map((date, index) => {
+      const formattedDate = formatDateToIST(date);
+      if (formattedDate === "Invalid Date") {
+        console.error("Invalid test date at index", index, ":", date);
+        throw new Error("Invalid test date encountered while formatting for email.");
+      }
+      const testDate = new Date(date);
+      const isPast = testDate <= nowLocalDate;
+      return {
+        date: formattedDate,
+        link: testLinks[index] || "Link unavailable",
+        number: index + 1,
+        isPast: isPast,
+      };
+    });
 
     console.log("📧 Sending test schedule notification email to candidate:", candidateEmail);
     await sendMail(
@@ -626,16 +708,17 @@ const scheduleTests = async (req, res) => {
         role: jobTitle,
         questionCount,
         duration: 60,
-        timezoneNote: "All times are in your local timezone. Please ensure your device's timezone is set correctly."
+        timezoneNote: "All times are in IST (Asia/Kolkata). Please ensure your device's timezone is set correctly."
       }
     ).catch(error => {
-      console.error("❌ Failed to send test schedule email:", error.message);
+      console.error(" Failed to send test schedule email:", error.message);
+      throw new Error(`Failed to send test schedule email: ${error.message}`);
     });
-    console.log("✅ Test schedule notification email sent successfully");
+    console.log(" Test schedule notification email sent successfully");
 
     const response = {
       message: `Scheduled ${testIds.length} of ${frequency} tests successfully`,
-      testDates: testDates.slice(0, testIds.length),
+      testDates: testDates.slice(0, testIds.length).map(date => date.toISOString()),
       testLinks,
       scheduleId: testSchedule._id,
     };
@@ -647,7 +730,7 @@ const scheduleTests = async (req, res) => {
 
     return res.status(200).json(response);
   } catch (error) {
-    console.error("❌ Error in scheduleTests:", {
+    console.error(" Error in scheduleTests:", {
       message: error.message,
       stack: error.stack,
       response: error.response?.data,
@@ -663,7 +746,7 @@ const getTest = async (req, res) => {
     const { testId } = req.params;
 
     if (!testId) {
-      console.log("❌ Missing testId");
+      console.log(" Missing testId");
       return res.status(400).json({ error: "Test ID is required." });
     }
 
@@ -671,72 +754,84 @@ const getTest = async (req, res) => {
     const test = await Test.findOne({ testId }).populate("candidate");
 
     if (!test) {
-      console.log("❌ Test not found");
+      console.log(" Test not found");
       return res.status(404).json({ error: "Test not found." });
     }
-    console.log("✅ Test found:", test._id);
+    console.log(" Test found:", test._id);
 
     const testSchedule = await TestSchedule.findOne({ testIds: testId });
     const maintest = await Test.findOne({ testId }).populate("candidate");
     if (maintest.status === 'Completed') {
-      console.log("❌ Test no longer available");
+      console.log(" Test no longer available");
       return res.status(403).json({
         error: "Test is no longer available.",
-        endTime: endTime.toString(),
-        message: `The test was Completed`,
+        endTime: formatDateToIST(new Date(maintest.scheduledDate.getTime() + 60 * 60 * 1000)),
+        message: `The test was completed.`,
       });
     }
 
     if (!testSchedule || !testSchedule.testDates || testSchedule.testDates.length === 0) {
-      console.log("❌ Test schedule not found or invalid");
+      console.log(" Test schedule not found or invalid");
       return res.status(404).json({ error: "Test schedule not found or has no scheduled dates." });
     }
-    console.log("✅ Test schedule found:", testSchedule._id);
+    console.log(" Test schedule found:", testSchedule._id);
 
-    // Get current time in IST
+    const testIndex = testSchedule.testIds.indexOf(testId);
+    if (testIndex === -1) {
+      console.log(" Test ID not found in schedule");
+      return res.status(404).json({ error: "Test ID not found in schedule." });
+    }
+    const scheduled = new Date(testSchedule.testDates[testIndex]);
+    if (isNaN(scheduled.getTime())) {
+      console.log(" Invalid scheduled date in test schedule");
+      return res.status(500).json({ error: "Invalid scheduled date in test schedule." });
+    }
+
+    const startTime = new Date(scheduled);
+    const startTimeIST = formatDateToIST(startTime);
+    if (startTimeIST === "Invalid Date") {
+      console.error("Invalid start time:", startTime);
+      return res.status(500).json({ error: "Invalid test start time." });
+    }
+
+    const endTime = new Date(startTime);
+    endTime.setHours(startTime.getHours() + 1);
+    const endTimeIST = formatDateToIST(endTime);
+    if (endTimeIST === "Invalid Date") {
+      console.error("Invalid end time:", endTime);
+      return res.status(500).json({ error: "Invalid test end time." });
+    }
+
     const now = new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" });
     const nowLocal = new Date(now);
 
-    // Get scheduled date and time from testSchedule.testDates[0]
-    const scheduled = new Date(testSchedule.testDates[0]);
-
-    // Set start time in IST using scheduled time's hours and minutes
-    const startTime = new Date(scheduled);
-    startTime.setHours(scheduled.getHours(), scheduled.getMinutes(), 0, 0);
-
-    // Set end time to start time + 1 hour
-    const endTime = new Date(startTime);
-    endTime.setHours(startTime.getHours() + 1, startTime.getMinutes(), 0, 0);
-
     console.log("🕒 Time Details:");
     console.log("   ▶️ Current Local Time (Asia/Kolkata):", nowLocal.toString());
-    console.log("   🕓 Test Start Time (Asia/Kolkata):", startTime.toString());
-    console.log("   🕔 Test End Time (Asia/Kolkata):", endTime.toString());
+    console.log("   🕓 Test Start Time (Asia/Kolkata):", startTimeIST);
+    console.log("   🕔 Test End Time (Asia/Kolkata):", endTimeIST);
     console.log("   ⏳ Time Remaining to Start (sec):", Math.floor((startTime - nowLocal) / 1000));
     console.log("   ⏳ Time Remaining to End (sec):", Math.floor((endTime - nowLocal) / 1000));
 
-    // Check if current time is before the start time
     if (nowLocal < startTime) {
-      console.log("❌ Test not yet available");
+      console.log(" Test not yet available");
       return res.status(403).json({
         error: "Test is not yet available.",
-        startTime: startTime.toString(),
+        startTime: startTimeIST,
         timeRemaining: Math.floor((startTime - nowLocal) / 1000),
-        message: `The test will be available at ${startTime.toLocaleString()} in your local time (Asia/Kolkata).`,
+        message: `The test will be available at ${startTimeIST} in your local time (Asia/Kolkata).`,
       });
     }
 
-    // Check if current time is after the end time
     if (nowLocal >= endTime) {
-      console.log("❌ Test no longer available");
+      console.log(" Test no longer available");
       return res.status(403).json({
         error: "Test is no longer available.",
-        endTime: endTime.toString(),
-        message: `The test was available until ${endTime.toLocaleString()} in your local time (Asia/Kolkata).`,
+        endTime: endTimeIST,
+        message: `The test was available until ${endTimeIST} in your local time (Asia/Kolkata).`,
       });
     }
 
-    console.log("✅ Test is accessible");
+    console.log(" Test is accessible");
 
     return res.status(200).json({
       message: "Test is accessible",
@@ -745,8 +840,8 @@ const getTest = async (req, res) => {
         jobTitle: test.jobTitle,
         questions: test.questions,
         duration: test.duration,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: startTimeIST,
+        endTime: endTimeIST,
         candidate: {
           name: test.candidate.name,
           email: test.candidate.email,
@@ -755,7 +850,7 @@ const getTest = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ Error in getTest:", {
+    console.error(" Error in getTest:", {
       message: error.message,
       stack: error.stack,
     });
@@ -771,34 +866,32 @@ const submitTest = async (req, res) => {
 
     // Validate input
     if (!testId || !Array.isArray(answers)) {
-      console.log("❌ Invalid test ID or answers");
+      console.log(" Invalid test ID or answers");
       return res.status(400).json({ error: "Invalid test ID or answers. Test ID must be a string and answers must be an array." });
     }
 
     const test = await Test.findOne({ testId }).populate("candidate");
     if (!test) {
-      console.log("❌ Test not found");
+      console.log(" Test not found");
       return res.status(404).json({ error: "Test not found." });
     }
 
     if (test.status === "Completed" || test.status === "Expired") {
-      console.log(`❌ Test is already ${test.status.toLowerCase()}`);
+      console.log(` Test is already ${test.status.toLowerCase()}`);
       return res.status(400).json({ error: `Test is already ${test.status.toLowerCase()}.` });
     }
 
-
-
     if (answers.length > test.questions.length) {
-      console.log("❌ Too many answers provided");
+      console.log(" Too many answers provided");
       return res.status(400).json({ error: "Too many answers provided." });
     }
     for (const answer of answers) {
       if (!Number.isInteger(answer.questionIndex) || answer.questionIndex < 0 || answer.questionIndex >= test.questions.length) {
-        console.log("❌ Invalid question index in answers");
+        console.log(" Invalid question index in answers");
         return res.status(400).json({ error: "Invalid question index in answers." });
       }
       if (answer.selectedOption && !['A', 'B', 'C', 'D'].includes(answer.selectedOption)) {
-        console.log("❌ Invalid selected option in answers");
+        console.log(" Invalid selected option in answers");
         return res.status(400).json({ error: "Selected option must be A, B, C, or D." });
       }
     }
@@ -838,14 +931,14 @@ const submitTest = async (req, res) => {
     ));
 
     await test.save();
-    console.log("✅ Test submitted and saved:", test._id);
+    console.log(" Test submitted and saved:", test._id);
 
     return res.status(200).json({
       message: "Test submitted successfully",
       results: { correct, wrong, noAttempt, total: test.questions.length },
     });
   } catch (error) {
-    console.error("❌ Error in submitTest:", {
+    console.error(" Error in submitTest:", {
       message: error.message,
       stack: error.stack,
     });
@@ -878,7 +971,7 @@ const getAllOffersOfIndividualCandidate = async (req, res) => {
     }
     return res.status(200).json(allOffers);
   } catch (error) {
-    console.error("❌ Error in getAllOffersOfCandidateEmail:", error.message);
+    console.error(" Error in getAllOffersOfCandidateEmail:", error.message);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };
@@ -940,11 +1033,11 @@ const handleDigioWebhook = async (req, res) => {
     }
 
     await offer.save();
-    console.log("✅ Offer updated:", offer);
+    console.log(" Offer updated:", offer);
 
     res.status(200).json({ message: "Webhook processed successfully" });
   } catch (error) {
-    console.error("❌ Webhook error:", error.message);
+    console.error(" Webhook error:", error.message);
     res.status(500).json({ message: "Server Error" });
   }
 };
@@ -1210,7 +1303,7 @@ const getDigioToken = async (req, res) => {
     );
     res.status(200).json({ access_token: response.data.access_token });
   } catch (error) {
-    console.error("❌ Error fetching Digio token:", error?.response?.data || error.message);
+    console.error(" Error fetching Digio token:", error?.response?.data || error.message);
     res.status(500).json({ error: "Failed to fetch Digio token" });
   }
 };

@@ -301,80 +301,60 @@ export async function sendMail(
 
       case "test-invitation":
         htmlContent = `
-            <h2>Technical Assessment for ${jobTitle}</h2>
-            <p>Dear ${candidateName},</p>
-            <p>You have been invited to complete a technical assessment for the ${jobTitle} position at ${companyName}.</p>
-            <p><strong>Scheduled Date and Time:</strong> ${new Date(additionalData.scheduledDate).toLocaleString('en-US', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true,
-          timeZone: 'UTC'
-        })} (your local time)</p>
-            <p><strong>Duration:</strong> ${additionalData.duration} minutes</p>
-            <p>Please click the link below to start the test at the scheduled time:</p>
-            <p><a href="${offerLetterLink}" style="display: inline-block; padding: 10px 20px; background-color: #5C3386; color: white; text-decoration: none; border-radius: 5px;">Start Test</a></p>
-            <p><strong>Note:</strong> The test can be accessed up to 5 minutes early. Ensure your device's timezone is set correctly.</p>
-            <p>Best regards,</p>
-            <p>${companyName} Team</p>
-          `;
+    <h2>Technical Assessment for ${jobTitle}</h2>
+    <p>Dear ${candidateName},</p>
+    <p>You have been invited to complete a technical assessment for the ${jobTitle} position at ${companyName}.</p>
+    <p><strong>Scheduled Date and Time:</strong> ${additionalData.scheduledDate} (IST)</p>
+    <p><strong>Duration:</strong> ${additionalData.duration} minutes</p>
+    <p>Please click the link below to start the test at the scheduled time:</p>
+    <p><a href="${additionalData.testLink || '#'}" style="display: inline-block; padding: 10px 20px; background-color: #5C3386; color: white; text-decoration: none; border-radius: 5px;">Start Test</a></p>
+    <p><strong>Note:</strong> The test can be accessed up to 5 minutes early. Ensure your device's timezone is set correctly.</p>
+    <p>Best regards,</p>
+    <p>${companyName} Team</p>
+  `;
         break;
 
       case "test-schedule-notification":
-        const now = new Date();
         htmlContent = `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-                <h2 style="color: #333;">Technical Assessments Scheduled for ${jobTitle}</h2>
-                <p>Dear ${candidateName},</p>
-                <p>We are pleased to inform you that technical assessments for the <strong>${jobTitle}</strong> position at ${companyName} have been scheduled. Please prepare to demonstrate your skills and expertise at the following times:</p>
-                <h3 style="color: #555;">Scheduled Assessments</h3>
-                <ul style="list-style: none; padding: 0;">
-                  ${additionalData.testDates
-            .map(
-              (date, index) => {
-                const testDate = new Date(date);
-                const endTime = new Date(testDate.getTime() + 60 * 60 * 1000); // 60 minutes
-                let statusNote = "";
-                if (testDate <= now) {
-                  statusNote = "<span style='color: red;'>Note: This test time has already passed. Please contact support.</span>";
-                }
-                return `
-                          <li style="margin-bottom: 15px;">
-                            <strong>Test ${index + 1}</strong><br>
-                            <strong>Date and Time:</strong> ${testDate.toLocaleString("en-US", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                  hour: "numeric",
-                  minute: "numeric",
-                  hour12: true,
-                })}<br>
-                            <strong>Duration:</strong> 60 minutes<br>
-                            ${statusNote}
-                          </li>
-                        `;
-              }
-            )
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <h2 style="color: #333;">Technical Assessments Scheduled for ${jobTitle}</h2>
+      <p>Dear ${candidateName},</p>
+      <p>We are pleased to inform you that technical assessments for the <strong>${jobTitle}</strong> position at ${companyName} have been scheduled. Please prepare to demonstrate your skills and expertise at the following times:</p>
+      <h3 style="color: #555;">Scheduled Assessments</h3>
+      <ul style="list-style: none; padding: 0;">
+        ${additionalData.testDates
+            .map((test) => {
+              const testDateStr = test.date || "Date unavailable";
+              const testLink = test.link || "Link unavailable";
+              const statusNote = test.isPast
+                ? "<span style='color: red;'>Note: This test time has already passed. Please contact support.</span>"
+                : "";
+              return `
+              <li style="margin-bottom: 15px;">
+                <strong>Test ${test.number}</strong><br>
+                <strong>Date and Time:</strong> ${testDateStr} (IST)<br>
+                <strong>Duration:</strong> 60 minutes<br>
+                <strong>Test Link:</strong> <a href="${testLink}">${testLink}</a> (available at the scheduled time)<br>
+                ${statusNote}
+              </li>
+            `;
+            })
             .join("")}
-                </ul>
-                <h3 style="color: #555;">Topics to Prepare</h3>
-                <p>The assessments will cover the following technical skills:</p>
-                <ul style="padding-left: 20px;">
-                  ${additionalData.skills.length > 0
+      </ul>
+      <h3 style="color: #555;">Topics to Prepare</h3>
+      <p>The assessments will cover the following technical skills:</p>
+      <ul style="padding-left: 20px;">
+        ${additionalData.skills.length > 0
             ? additionalData.skills.map((skill) => `<li>${skill}</li>`).join("")
             : `<li>General programming concepts relevant to the ${jobTitle} role</li>`}
-                </ul>
-                <p><strong>Preparation:</strong> Please review the listed topics and be ready to start each assessment promptly at the scheduled time. You will receive a separate email with the test link at the start of each assessment.</p>
-                <p>If you have any questions or if a test time has passed, please contact our team at <a href="mailto:support@talentid.app">support@talentid.app</a>.</p>
-                <p>Best regards,</p>
-                <p style="font-weight: bold;">${companyName} Recruitment Team</p>
-              </div>
-            `;
+      </ul>
+      <p><strong>Preparation:</strong> Please review the listed topics and be ready to start each assessment promptly at the scheduled time. You will also receive a separate email with the test link at the start of each assessment.</p>
+      <p>If you have any questions or if a test time has passed, please contact our team at <a href="mailto:support@talentid.app">support@talentid.app</a>.</p>
+      <p>Best regards,</p>
+      <p style="font-weight: bold;">${companyName} Recruitment Team</p>
+    </div>
+  `;
         break;
-
       default:
         throw new Error(`Invalid email type: ${emailType}`);
     }
