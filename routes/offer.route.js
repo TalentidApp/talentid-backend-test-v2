@@ -16,6 +16,7 @@ import {
   submitTest,
   getTest,
   scheduleTests,
+  getCandidateTests,
 } from "../controllers/offer.controller.js";
 import { createOfferPunch, getOfferPunches } from "../controllers/offer-punch.controller.js";
 
@@ -36,6 +37,7 @@ router.post("/generate-test", protectRoute, generateTest);
 router.post("/submit-test", protectRoute, submitTest);
 router.post("/schedule-tests",protectRoute, scheduleTests);
 router.get("/test/:testId", getTest);
+router.get("/tests",protectRoute, getCandidateTests);
 router.post('/update-show-status', protectRoute, updateShowStatus);
 router.get("/digio/token", protectRoute, getDigioToken);
 

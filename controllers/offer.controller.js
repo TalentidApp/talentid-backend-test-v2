@@ -9,6 +9,7 @@ import User from "../models/user.model.js";
 import UploadImageToCloudinary from "../utils/uploadImageToCloudinary.js";
 import FormData from "form-data";
 import fs from "fs";
+import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 
 const DIGIO_BASE_URL = "https://api-sandbox.digio.in/v2/client/document/upload";
@@ -80,6 +81,7 @@ export const generateRandomPassword = (length) => {
   }
   return password;
 };
+
 const createOffer = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -175,6 +177,8 @@ const createOffer = async (req, res) => {
       offerLetterLink,
       joiningDate,
       expiryDate,
+      null,
+      {},
       generatedPassword
     );
 
@@ -188,10 +192,9 @@ const createOffer = async (req, res) => {
 };
 
 const getRandomHour = () => {
-  return Math.floor(Math.random() * 13) + 8; // 8 AM to 8 PM UTC
+  return Math.floor(Math.random() * 13) + 8; 
 };
 
-// Helper function to convert UTC date to IST and format it
 const formatDateToIST = (date) => {
   if (!(date instanceof Date) || isNaN(date.getTime())) {
     console.error("Invalid date provided to formatDateToIST:", date);
@@ -1346,6 +1349,110 @@ const sendOfferRemainder = async (req, res) => {
   }
 };
 
+const getCandidateTests = async (req, res) => {
+  console.log("🚀 Starting GET /api/tests for candidate");
+
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    const candidateId = req.user.id; 
+
+    console.log(`🔍 Fetching tests for candidate ${candidateId} (page: ${page}, limit: ${limit})...`);
+
+    const tests = await Test.find({ candidate: candidateId })
+      .populate('candidate', 'name email')
+      .skip(skip)
+      .limit(parseInt(limit))
+      .lean();
+
+    if (!tests.length) {
+      console.log("❌ No tests found for candidate");
+      return res.status(404).json({ message: "No tests found for this candidate." });
+    }
+
+    console.log(`✅ Found ${tests.length} tests`);
+
+    const testIds = tests.map(test => test.testId);
+    const testSchedules = await TestSchedule.find({ testIds: { $in: testIds } })
+      .select('jobTitle joiningDate status testIds')
+      .lean();
+
+    // Log any testSchedules with invalid testIds for debugging
+    testSchedules.forEach((schedule, index) => {
+      if (!Array.isArray(schedule.testIds)) {
+        console.warn(`⚠️ Invalid testIds in TestSchedule at index ${index}:`, schedule);
+      }
+    });
+
+    const formattedTests = tests.map(test => {
+      const scheduledDate = test.scheduledDate ? new Date(test.scheduledDate) : null;
+      const scheduledDateIST = scheduledDate
+        ? scheduledDate.toLocaleString("en-US", {
+            timeZone: "Asia/Kolkata",
+            weekday: "long",
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+            hour: "numeric",
+            minute: "numeric",
+            hour12: true,
+          })
+        : "N/A";
+
+      // Find related test schedule, ensuring testIds is an array
+      const relatedSchedule = testSchedules.find(
+        schedule => Array.isArray(schedule.testIds) && schedule.testIds.includes(test.testId)
+      );
+
+      return {
+        testId: test.testId,
+        candidate: {
+          name: test.candidate?.name || "Unknown Candidate",
+          email: test.candidate?.email || "N/A",
+        },
+        jobTitle: test.jobTitle,
+        scheduledDate: scheduledDateIST,
+        duration: test.duration,
+        status: test.status,
+        results: {
+          correct: test.results.correct,
+          wrong: test.results.wrong,
+          noAttempt: test.results.noAttempt,
+          total: test.questions.length,
+        },
+        testLink: `${process.env.APP_BASE_URL}/test/${test.testId}`,
+        joiningDate: relatedSchedule?.joiningDate
+          ? new Date(relatedSchedule.joiningDate).toLocaleDateString("en-US", {
+              timeZone: "Asia/Kolkata",
+            })
+          : "N/A",
+      };
+    });
+
+    console.log("✅ Tests formatted successfully");
+
+    return res.status(200).json({
+      message: "Tests retrieved successfully",
+      tests: formattedTests,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total: await Test.countDocuments({ candidate: candidateId }),
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error in GET /api/tests:", {
+      message: error.message,
+      stack: error.stack,
+    });
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
+
+
 export {
   createOffer,
   getAllOffers,
@@ -1361,5 +1468,6 @@ export {
   submitTest,
   getTest,
   updateShowStatus,
-  scheduleTests
+  scheduleTests,
+  getCandidateTests
 };

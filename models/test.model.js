@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const candidateAnswerSchema = new mongoose.Schema({
   questionIndex: { type: Number, required: true },
-  selectedOption: { type: String, default: null }, // A, B, C, D, or null
+  selectedOption: { type: String, default: null }, 
 });
 
 const resultsSchema = new mongoose.Schema({
