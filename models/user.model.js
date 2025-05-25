@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
-import { company_size_value, user_role } from "../utils/data.js";
-import { subscriptionPlan_values } from "../utils/data.js";
+import { company_size_value, user_role, subscriptionPlan_values } from "../utils/data.js";
 
 const userSchema = new mongoose.Schema(
   {
@@ -15,37 +14,22 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, minLength: 8, required: true },
     documents: { type: String },
-    verifiedDocuments: {
-      type: Boolean,
-      default: false,
-    },
-    additionalDetails: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "AdditionalDetails",
-    },
+    verifiedDocuments: { type: Boolean, default: false },
+    additionalDetails: { type: mongoose.Schema.Types.ObjectId, ref: "AdditionalDetails" },
     isEmailVerified: { type: Boolean, default: false },
     isVerified: { type: Boolean, default: false },
     credits: { type: Number, default: 100 },
     userImage: { type: String },
-    otp: {
-      type: String,
-      default: "",
-    },
-    otpExpires: {
-      type: Date,
-      default: null,
-    },
+    otp: { type: String, default: "" },
+    otpExpires: { type: Date, default: null },
     token: {
       type: String,
-      expires: {
-        type: Date,
-        default: () => new Date(Date.now() + 5 * 60 * 60 * 1000), // 5 hours expiry
-      },
+      expires: { type: Date, default: () => new Date(Date.now() + 5 * 60 * 60 * 1000) },
     },
     resetPasswordToken: { type: String },
     resetPasswordTokenExpires: {
       type: Date,
-      default: () => new Date(Date.now() + 5 * 60 * 1000), // 5 minutes expiry
+      default: () => new Date(Date.now() + 5 * 60 * 1000),
     },
     searchHistory: [{ type: mongoose.Schema.Types.ObjectId, ref: "Candidate" }],
     offerLettersSent: { type: Number, default: 0 },
@@ -69,26 +53,17 @@ const userSchema = new mongoose.Schema(
     notificationPreferences: {
       masterToggle: { type: Boolean, default: true },
       specificNotifications: [
-        {
-          type: { type: String },
-          emailEnabled: { type: Boolean, default: true },
-        },
+        { type: { type: String }, emailEnabled: { type: Boolean, default: true } },
       ],
     },
     inviteLinks: [
       {
         email: { type: String },
-        type: {
-          type: String,
-          enum: ["invite", "view"],
-          required: true,
-        },
+        type: { type: String, enum: ["invite", "view"], required: true },
         createdAt: { type: Date, default: Date.now },
       },
     ],
     activityLogs: [{ action: String, timestamp: { type: Date, default: Date.now } }],
-    feedbackReceived: [{ type: mongoose.Schema.Types.ObjectId, ref: "Feedback" }],
-    feedbackGiven: [{ type: mongoose.Schema.Types.ObjectId, ref: "Feedback" }],
   },
   { timestamps: true }
 );
@@ -119,12 +94,8 @@ userSchema.pre("save", function (next) {
     this.inviteLinks = undefined;
     this.documents = undefined;
     this.verifiedDocuments = undefined;
-    this.feedbackReceived = undefined;
-    this.feedbackGiven = undefined;
   }
   next();
 });
 
-const User = mongoose.model("User", userSchema);
-
-export default User;
+export default mongoose.model("User", userSchema);

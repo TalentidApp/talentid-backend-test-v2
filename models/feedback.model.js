@@ -2,46 +2,44 @@ import mongoose from "mongoose";
 
 const feedbackSchema = new mongoose.Schema(
   {
-    reviewer: {
+    reviewerId: {
       type: mongoose.Schema.Types.ObjectId,
-      refPath: "reviewerModel",
       required: true,
+      refPath: "reviewerModel",
     },
     reviewerModel: {
       type: String,
       required: true,
-      enum: ["User", "HiringCandidate"],
+      enum: ["User", "HiringCandidate", "Company"],
     },
-    recipient: {
+    recipientId: {
       type: mongoose.Schema.Types.ObjectId,
-      refPath: "recipientModel",
       required: true,
+      refPath: "recipientModel",
     },
     recipientModel: {
       type: String,
       required: true,
-      enum: ["User", "HiringCandidate"],
+      enum: ["HiringCandidate", "Company"],
+    },
+    companyId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Company",
+      required: false, // Optional, included when reviewer is User
     },
     rating: {
       type: Number,
+      required: true,
       min: 1,
       max: 5,
-      required: true,
     },
     comment: {
       type: String,
       trim: true,
       maxlength: 500,
-      default: "",
-    },
-    createdAt: {
-      type: Date,
-      default: Date.now,
     },
   },
   { timestamps: true }
 );
 
-const Feedback = mongoose.model("Feedback", feedbackSchema);
-
-export default Feedback;
+export default mongoose.model("Feedback", feedbackSchema);
