@@ -1,26 +1,17 @@
-
-
 import User from "../models/user.model.js";
-
-import { sendMail } from "../utils/mail.js";
-
-import axios from 'axios';
-
-import AdditionalDetails from "../models/additionalDetails.model.js";
-
-import Counter from "../models/count.model.js";
-
-import Candidate from "../models/candidate.model.js";
-
-import { getDateDifference, user_role } from "../utils/data.js";
-
-import Offer from "../models/offer.model.js";
-
 import HiringCandidate from "../models/hiringCandidate.model.js";
+import AdditionalDetails from "../models/additionalDetails.model.js";
+import Counter from "../models/count.model.js";
+import Candidate from "../models/candidate.model.js";
+import Offer from "../models/offer.model.js";
+import { sendMail } from "../utils/mail.js";
+import { randomStringGenerator, generateResetPasswordToken, getDateDifference, user_role } from "../utils/data.js";
+import axios from "axios";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 const fetchAppliedCompaniesFromScreenit = async (email, token) => {
   try {
-    console.log("Fetching data from Screenit...");
     const response = await axios.post(
       `${process.env.base_company_url}/user_data`,
       {
@@ -33,10 +24,7 @@ const fetchAppliedCompaniesFromScreenit = async (email, token) => {
         },
       }
     );
-
-    console.log("Screenit response:", response.data);
     if (!response.data.success || !response.data.profile?.length) return [];
-
     return response.data.profile.map((data) => ({
       companyName: data?.orgname,
       applicantName: data?.candidate_name || "",
@@ -52,19 +40,15 @@ const fetchAppliedCompaniesFromScreenit = async (email, token) => {
       }],
     }));
   } catch (error) {
-    console.error("Error fetching data from Screenit:", error);
     return [];
   }
 };
 
 const fetchAppliedCompaniesFromDummyBackend = async (email) => {
   try {
-    console.log("Fetching data from Dummy Backend...");
     const response = await axios.get(`${process.env.dummyBackendCompanyUrl}/${email}`);
-    console.log("Dummy Backend response:", response.data);
     return response?.data?.data?.appliedCompanies || [];
   } catch (error) {
-    console.error("Error fetching data from Dummy Backend:", error);
     return [];
   }
 };
@@ -72,16 +56,11 @@ const fetchAppliedCompaniesFromDummyBackend = async (email) => {
 const fetchSignedOfferLetter = async (email) => {
   try {
     const offers = await Offer.find({}).populate('candidate').populate('hr');
-    const userData = offers.filter((data) => data.candidate.email === email);
-    console.log("Filtered user data:", userData);
-    return userData;
+    return offers.filter((data) => data.candidate.email === email);
   } catch (error) {
-    console.error("Error fetching user data from our platform:", error);
     return [];
   }
 };
-
-
 
 const fetchUserDataFromCompanies = async (email, token) => {
   try {
@@ -89,10 +68,8 @@ const fetchUserDataFromCompanies = async (email, token) => {
       fetchAppliedCompaniesFromScreenit(email, token),
       fetchAppliedCompaniesFromDummyBackend(email),
     ]);
-
     return [...screenitData, ...dummyData];
   } catch (error) {
-    console.error("Error fetching user data from companies:", error);
     throw new Error("Failed to fetch user data");
   }
 };
@@ -102,58 +79,38 @@ const filterCandidateData = (companiesData) =>
 
 const searchUserInfo = async (req, res) => {
   try {
-    console.log("User ID:", req.user.id);
     const { email } = req.body;
     const userId = req.user.id;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
+    if (!email) return res.status(400).json({ message: "Email is required" });
     const user = await User.findById(userId);
-
     const targetUser = await User.findOne({ email });
     if (!targetUser) return res.status(404).json({ message: "user not found" });
-
-
     if (!user) return res.status(404).json({ message: "User not found" });
     if (!user.isVerified) return res.status(401).json({ message: "User is not verified" });
     if (user.credits <= 0) return res.status(403).json({ message: "Insufficient credits" });
-
     const authenticatedUser = await User.findOne({ email: process.env.secretEmail });
     if (!authenticatedUser) return res.status(404).json({ message: "Authenticated user not found" });
-
-    // Fetch all data in parallel
     const [allAppliedCompaniesData, signedOfferData, candidateData, hiringCandidateData] = await Promise.all([
       fetchUserDataFromCompanies(email, authenticatedUser.token),
       fetchSignedOfferLetter(email),
       Candidate.findOne({ email }).populate("appliedCompanies"),
       HiringCandidate.findOne({ email })
     ]);
-
     let offersData = [];
-    if (hiringCandidateData) {
-      offersData = await Offer.find({ email });
-    }
-
+    if (hiringCandidateData) offersData = await Offer.find({ email });
     user.credits -= 1;
     await user.save();
-
     user.inviteLinks.push({ email, type: 'view' });
     await user.save();
-
     const filteredAppliedCompanies = filterCandidateData(allAppliedCompaniesData);
-
     if (!candidateData && !hiringCandidateData && allAppliedCompaniesData.length === 0 && signedOfferData.length === 0) {
       return res.status(404).json({ message: "No data found for this email.Invite them" });
     }
-
     const recordToAdd = candidateData || hiringCandidateData;
     if (recordToAdd) {
       user.searchHistory.push({ _id: recordToAdd._id });
       await user.save();
     }
-
     res.status(200).json({
       message: "User data fetched successfully",
       data: {
@@ -167,14 +124,11 @@ const searchUserInfo = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error in searchUserInfo:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
 const updateUserData = async (req, res) => {
-  console.log("Inside updateUserData");
-
   try {
     const {
       adminUserId,
@@ -199,106 +153,29 @@ const updateUserData = async (req, res) => {
       maritalStatus = null,
       bio = null,
     } = req.body;
-
-    console.log("Request data:", {
-      adminUserId,
-      userId,
-      fullname,
-      email,
-      phone,
-      company,
-      companySize,
-      industry,
-      designation,
-      role,
-      verifiedDocuments,
-      isEmailVerified,
-      isVerified,
-      credits,
-      subscriptionPlan,
-    });
-
-    if (!userId) {
-      return res.status(400).json({
-        message: "User ID is required",
-        error: null,
-        data: null,
-      });
-    }
-
-    if (!adminUserId) {
-      return res.status(400).json({
-        message: "Admin User ID is required",
-        error: null,
-        data: null,
-      });
-    }
-
-    if (email !== null) {
-      return res.status(400).json({
-        message: "Invalid email format",
-        error: null,
-        data: null,
-      });
-    }
-
+    if (!userId) return res.status(400).json({ message: "User ID is required", error: null, data: null });
+    if (!adminUserId) return res.status(400).json({ message: "Admin User ID is required", error: null, data: null });
+    if (email !== null) return res.status(400).json({ message: "Invalid email format", error: null, data: null });
     const adminUser = await User.findById(adminUserId);
     const clientUser = await User.findById(userId).populate("additionalDetails");
-
-    if (!adminUser) {
-      return res.status(404).json({
-        message: "Admin user not found",
-        error: null,
-        data: null,
-      });
-    }
-
-    if (!clientUser) {
-      return res.status(404).json({
-        message: "Client user not found",
-        error: null,
-        data: null,
-      });
-    }
-
-    // Create update objects
+    if (!adminUser) return res.status(404).json({ message: "Admin user not found", error: null, data: null });
+    if (!clientUser) return res.status(404).json({ message: "Client user not found", error: null, data: null });
     const updateFields = {};
     const additionalDetailsUpdates = {};
-
-    // Fields that can be updated by both regular users and admins
     if (fullname !== null) {
-      if (!fullname.trim()) {
-        return res.status(400).json({
-          message: "Full name cannot be empty",
-          error: null,
-          data: null,
-        });
-      }
+      if (!fullname.trim()) return res.status(400).json({ message: "Full name cannot be empty", error: null, data: null });
       updateFields.fullname = fullname.trim();
-      // Only update userImage if explicitly desired
-      // updateFields.userImage = `https://api.dicebear.com/5.x/initials/svg?seed=${fullname.trim()}`;
     }
-
     if (phone !== null) {
-      if (phone && !/^\d{10}$/.test(phone)) {
-        return res.status(400).json({
-          message: "Phone must be a 10-digit number",
-          error: null,
-          data: null,
-        });
-      }
+      if (phone && !/^\d{10}$/.test(phone)) return res.status(400).json({ message: "Phone must be a 10-digit number", error: null, data: null });
       updateFields.phone = phone;
     }
-
-    // Additional details fields
     if (address !== null) additionalDetailsUpdates.address = address;
     if (gender !== null) additionalDetailsUpdates.gender = gender;
     if (dateOfBirth !== null) additionalDetailsUpdates.dateOfBirth = dateOfBirth;
     if (nationality !== null) additionalDetailsUpdates.nationality = nationality;
     if (maritalStatus !== null) additionalDetailsUpdates.maritalStatus = maritalStatus;
     if (bio !== null) additionalDetailsUpdates.bio = bio;
-
-    // Admin-only fields
     if (["Admin", "Super_Admin"].includes(adminUser.role)) {
       if (email !== null) updateFields.email = email;
       if (company !== null) updateFields.company = company;
@@ -310,407 +187,121 @@ const updateUserData = async (req, res) => {
       if (isEmailVerified !== null) updateFields.isEmailVerified = isEmailVerified;
       if (isVerified !== null) {
         updateFields.isVerified = isVerified;
-        try {
-          await sendMail(
-            clientUser.email,
-            null,
-            "User Verification",
-            "verify",
-            clientUser.fullname,
-            null
-          );
-        } catch (emailError) {
-          console.error("Error sending verification email:", emailError.message);
-          // Optionally include in response
-          // updateFields.emailError = "Failed to send verification email";
-        }
+        await sendMail(clientUser.email, null, "User Verification", "verify", clientUser.fullname, null);
       }
       if (credits !== null) {
         const creditsNum = Number(credits);
-        if (isNaN(creditsNum) || creditsNum < 0) {
-          return res.status(400).json({
-            message: "Credits must be a non-negative number",
-            error: null,
-            data: null,
-          });
-        }
+        if (isNaN(creditsNum) || creditsNum < 0) return res.status(400).json({ message: "Credits must be a non-negative number", error: null, data: null });
         updateFields.credits = creditsNum;
-        try {
-          await sendMail(
-            clientUser.email,
-            null,
-            "Credits added to your account",
-            "credits",
-            clientUser.fullname,
-            creditsNum
-          );
-        } catch (emailError) {
-          console.error("Error sending credits email:", emailError.message);
-          // Optionally include in response
-          // updateFields.emailError = "Failed to send credits email";
-        }
+        await sendMail(clientUser.email, null, "Credits added to your account", "credits", clientUser.fullname, creditsNum);
       }
       if (subscriptionPlan !== null) updateFields.subscriptionPlan = subscriptionPlan;
     } else {
-      // Non-admin trying to update admin-only fields
-      if (
-        email !== null ||
-        company !== null ||
-        companySize !== null ||
-        industry !== null ||
-        designation !== null ||
-        role !== null ||
-        verifiedDocuments !== null ||
-        isEmailVerified !== null ||
-        isVerified !== null ||
-        credits !== null ||
-        subscriptionPlan !== null
-      ) {
-        return res.status(403).json({
-          message: "Unauthorized to update admin-only fields",
-          error: null,
-          data: null,
-        });
+      if (email !== null || company !== null || companySize !== null || industry !== null || designation !== null || role !== null || verifiedDocuments !== null || isEmailVerified !== null || isVerified !== null || credits !== null || subscriptionPlan !== null) {
+        return res.status(403).json({ message: "Unauthorized to update admin-only fields", error: null, data: null });
       }
     }
-
-    // Update additionalDetails if needed
     if (Object.keys(additionalDetailsUpdates).length > 0) {
       if (!clientUser.additionalDetails) {
-        // Create new additionalDetails document if it doesn't exist
-        const AdditionalDetails = require("../models/AdditionalDetails"); // Adjust path
         clientUser.additionalDetails = await AdditionalDetails.create(additionalDetailsUpdates);
       } else {
-        // Update existing additionalDetails
         await clientUser.additionalDetails.updateOne(additionalDetailsUpdates);
       }
     }
-
-    // Update the client user with the specified fields
-    console.log("Updating fields:", updateFields);
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { $set: updateFields },
-      {
-        new: true,
-        runValidators: true,
-      }
-    ).populate("additionalDetails");
-
-    if (!updatedUser) {
-      return res.status(404).json({
-        message: "Failed to update user",
-        error: null,
-        data: null,
-      });
-    }
-
-    return res.status(200).json({
-      message: "User updated successfully",
-      error: null,
-      data: updatedUser,
-    });
+    const updatedUser = await User.findByIdAndUpdate(userId, { $set: updateFields }, { new: true, runValidators: true }).populate("additionalDetails");
+    if (!updatedUser) return res.status(404).json({ message: "Failed to update user", error: null, data: null });
+    return res.status(200).json({ message: "User updated successfully", error: null, data: updatedUser });
   } catch (error) {
-    console.error("Error in updateUserData:", error.message);
-    return res.status(500).json({
-      message: "Error updating user",
-      data: null,
-      error: error.message,
-    });
+    return res.status(500).json({ message: "Error updating user", data: null, error: error.message });
   }
 };
-
-
 
 const getAllApiCountValue = async (req, res) => {
-
   try {
-
     const apiCounts = await Counter.find({});
-
-    return res.status(200).json({
-
-      message: "all api counts fetch successfully ",
-      data: apiCounts,
-      success: true,
-
-    })
-
+    return res.status(200).json({ message: "all api counts fetch successfully ", data: apiCounts, success: true });
   } catch (error) {
-
-    console.log("Error in getAllApiCountValue", error.message);
-
-    return res.status(500).json({
-
-      success: false,
-      message: "Error in getting API count value",
-      error: error.message,
-
-    })
-  }
-
-}
-
-
-const getUserHistoryData = async (req, res) => {
-
-  try {
-
-    const userId = req.user.id;
-
-    console.log("user id is ", userId);
-
-    // Validate the userId
-    if (!userId) {
-      return res.status(400).json({
-        data: null,
-        message: "User ID is required",
-        error: null,
-      });
-    }
-
-    // Fetch the user's history data from the database
-
-
-    const userData = await User.findById(userId).populate("searchHistory");
-
-    // Check if user history data exists
-    if (!userData.searchHistory || userData.searchHistory.length === 0) {
-
-      return res.status(404).json({
-        data: null,
-        message: "No history found for this user",
-        error: null,
-      });
-
-
-    }
-    // Sort the history array by createdAt in descending order
-    userData.searchHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
-
-    console.log("user history at login", userData.searchHistory);
-
-
-    // Return the user's history data
-
-    return res.status(200).json({
-      data: userData.searchHistory,
-      message: "User history fetched successfully",
-      error: null,
-
-    });
-
-  } catch (error) {
-    console.error(error.message);
-    return res.status(500).json({
-      data: null,
-      message: "Some error occurred while fetching user history",
-      error: error.message,
-    });
+    return res.status(500).json({ success: false, message: "Error in getting API count value", error: error.message });
   }
 };
 
-
-
+const getUserHistoryData = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    if (!userId) return res.status(400).json({ data: null, message: "User ID is required", error: null });
+    const userData = await User.findById(userId).populate("searchHistory");
+    if (!userData.searchHistory || userData.searchHistory.length === 0) return res.status(404).json({ data: null, message: "No history found for this user", error: null });
+    userData.searchHistory.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return res.status(200).json({ data: userData.searchHistory, message: "User history fetched successfully", error: null });
+  } catch (error) {
+    return res.status(500).json({ data: null, message: "Some error occurred while fetching user history", error: error.message });
+  }
+};
 
 const getUserCredits = async (req, res) => {
-
   try {
-
     const userId = req.user.id;
-
-    if (!userId) {
-
-      return res.status(400).json(({
-
-
-        message: "all field are required ",
-        error: null,
-        data: null,
-
-      }))
-
-    }
-
+    if (!userId) return res.status(400).json({ message: "all field are required ", error: null, data: null });
     const userCredits = await User.findById(userId).select('credits');
-
-    return res.status(200).json({
-
-      message: "user credits get success",
-      data: userCredits,
-      success: true,
-    })
-
+    return res.status(200).json({ message: "user credits get success", data: userCredits, success: true });
   } catch (error) {
-
-    console.log(error);
-
-    return res.status(500).json({
-
-      message: "get error while update the credits  "
-    })
-
+    return res.status(500).json({ message: "get error while update the credits " });
   }
-}
-
-
+};
 
 const fetchAllusers = async (req, res) => {
   try {
-    const users = await User.find({}).select('-token -password -searchHistory'); // Exclude token and password
-    // Exclude searchHistory
-    return res.status(200).json({
-      message: "users fetched successfully",
-      data: users,
-      error: null,
-    });
+    const users = await User.find({}).select('-token -password -searchHistory');
+    return res.status(200).json({ message: "users fetched successfully", data: users, error: null });
   } catch (error) {
-
-    console.log("error", error);
-
-    return res.status(500).json({
-
-      message: "some error occurred while fetching users",
-      data: null,
-      error: error.message,
-
-    })
-
-  }
-}
-
-
-// delete the users account 
-
-const deleteUserAccount = async (req, res) => {
-  try {
-
-    const id = req.user.id;
-
-    // Check if ID is provided
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        message: 'User ID is required to delete the account.',
-      });
-    }
-
-    // Find and delete the user
-
-    const userDetails = await User.findById(id);
-
-    // If user is not found
-
-    if (!deletedUser) {
-
-      return res.status(404).json({
-        success: false,
-        message: 'User not found.',
-      });
-
-    }
-
-    // find additional details 
-
-    const findAdditionalDetails = await AdditionalDetails.findByIdAndDelete(userDetails._id);
-
-    // Successful deletion
-    return res.status(200).json({
-      success: true,
-      message: 'User account deleted successfully.',
-      data: deletedUser, // Optional: return deleted user info
-    });
-  } catch (error) {
-    console.error('Error deleting user account:', error.message);
-    return res.status(500).json({
-
-      success: false,
-      message: 'Server error. Could not delete user account.',
-      error: error.message
-
-    });
+    return res.status(500).json({ message: "some error occurred while fetching users", data: null, error: error.message });
   }
 };
 
+const deleteUserAccount = async (req, res) => {
+  try {
+    const id = req.user.id;
+    if (!id) return res.status(400).json({ success: false, message: 'User ID is required to delete the account.' });
+    const userDetails = await User.findById(id);
+    if (!userDetails) return res.status(404).json({ success: false, message: 'User not found.' });
+    await User.findByIdAndDelete(id);
+    await AdditionalDetails.findByIdAndDelete(userDetails.additionalDetails);
+    return res.status(200).json({ success: true, message: 'User account deleted successfully.', data: userDetails });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Server error. Could not delete user account.', error: error.message });
+  }
+};
 
 const searchCompanies = async (req, res) => {
   try {
     const users = await User.find({}).select('company');
     const companyNames = [...new Set(users.map(user => user.company).filter(Boolean))];
-
-    if (!companyNames.length) {
-      return res.status(404).json({ message: "No companies found" });
-    }
-
+    if (!companyNames.length) return res.status(404).json({ message: "No companies found" });
     const companies = companyNames.map(name => ({ companyName: name }));
-
-    res.status(200).json({
-      message: "Companies fetched successfully",
-      data: companies,
-    });
+    res.status(200).json({ message: "Companies fetched successfully", data: companies });
   } catch (error) {
-    console.error("Error in searchCompanies:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
 
-// now i have to start the engagement server 
-
 const startEngagement = async (req, res) => {
-
   try {
-
-
-    // 1. it should difference bw the offer date and the joining date 
-    // 2. you should have send atleast five skills of that candidate 
-    // 3. now we have to send the skills to the openAI in order to generate questions but the number of questions depends on diff bw thw offer and joining date
-
   } catch (error) {
-
-    console.error("error in startEngagement", error.message);
-
-
   }
-}
+};
 
-export const updateProfile = async (req, res) => {
+const updateProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-    const {
-      mobileNumber,
-      company,
-      website,
-      state,
-      bio,
-      employees
-    } = req.body;
-
-    console.log('rfr')
-
-    // Find the user
+    const { mobileNumber, company, website, state, bio, employees } = req.body;
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // Update user fields
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
     user.phone = mobileNumber || user.phone;
     user.company = company || user.company;
-
-    // For non-admin users, update additional details
     if (![user_role.Sub_Admin, user_role.Super_Admin].includes(user.role)) {
-      // Update or create additional details
       let additionalDetails = await AdditionalDetails.findOne({ _id: user.additionalDetails });
-
       if (!additionalDetails) {
-        additionalDetails = new AdditionalDetails({
-          state,
-          bio,
-          numberOfEmployees: employees,
-          companyWebsite: website
-        });
+        additionalDetails = new AdditionalDetails({ state, bio, numberOfEmployees: employees, companyWebsite: website });
         await additionalDetails.save();
         user.additionalDetails = additionalDetails._id;
       } else {
@@ -721,111 +312,96 @@ export const updateProfile = async (req, res) => {
         await additionalDetails.save();
       }
     }
-
     await user.save();
-
-    // Populate additional details for response
     const updatedUser = await User.findById(userId).populate('additionalDetails');
-
-    res.status(200).json({
-      success: true,
-      message: "Profile updated successfully",
-      user: updatedUser
-    });
+    res.status(200).json({ success: true, message: "Profile updated successfully", user: updatedUser });
   } catch (error) {
-    console.error("Error updating profile:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }
 };
 
-export const getProfile = async (req, res) => {
+const getProfile = async (req, res) => {
   try {
     const userId = req.user.id;
-
-    const user = await User.findById(userId)
-      .populate('additionalDetails')
-      .select('-password -token -resetPasswordToken -resetPasswordTokenExpires');
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      user: {
-        ...user.toObject(),
-        additionalDetails: user.additionalDetails || null,
-        inviteLinks: user.inviteLinks || []
-      }
-    });
+    const user = await User.findById(userId).populate('additionalDetails').select('-password -token -resetPasswordToken -resetPasswordTokenExpires');
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    res.status(200).json({ success: true, user: { ...user.toObject(), additionalDetails: user.additionalDetails || null, inviteLinks: user.inviteLinks || [] } });
   } catch (error) {
-    console.error("Error fetching profile:", error);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-      error: error.message
-    });
+    res.status(500).json({ success: false, message: "Internal server error", error: error.message });
   }
 };
 
 const sendInvite = async (req, res) => {
   try {
     const { email } = req.body;
-    const userId = req.user?.id; // Assuming you have user authentication middleware providing the user ID
-
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ success: false, message: "Invalid email address" });
-    }
-
-    // Check if email already exists in inviteLinks
+    const userId = req.user?.id;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ success: false, message: "Invalid email address" });
     const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    // if (user.inviteLinks.includes(email)) {
-    //   return res.status(400).json({ success: false, message: "This email has already been invited" });
-    // }
-
-    await sendMail(
-      email,
-      null,
-      "Invitation to Join Talentid.app",
-      "candidate-invite",
-      "Candidate",
-      null,
-      "Candidate",
-      "Talentid.app",
-      null,
-      null,
-      null,
-      null,
-      { signupLink: `${process.env.frontend_url}/signup` }
-    );
-
-    user.inviteLinks.push({
-      email: email,
-      type: 'invite'
-    });
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    await sendMail(email, null, "Invitation to Join Talentid.app", "candidate-invite", "Candidate", null, "Candidate", "Talentid.app", null, null, null, null, { signupLink: `${process.env.frontend_url}/signup` });
+    user.inviteLinks.push({ email: email, type: 'invite' });
     await user.save();
-
     res.status(200).json({ success: true, message: "Invitation email sent successfully" });
   } catch (error) {
-    console.error("Error sending invite email:", error);
     res.status(500).json({ success: false, message: "Failed to send invitation email", error: error.message });
   }
 };
 
+const sendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ message: "Valid email is required" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    const otp = randomStringGenerator(6, "numeric");
+    const otpExpires = new Date(Date.now() + 5 * 60 * 1000);
+    user.otp = await bcrypt.hash(otp, 10);
+    user.otpExpires = otpExpires;
+    await user.save();
+    await sendMail(email, user._id, "Password Reset OTP", "recruiter-otp", user.fullname, null, null, null, null, null, null, null, otp);
+    res.status(200).json({ message: "OTP sent successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to send OTP", error: error.message });
+  }
+};
+
+const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ message: "Email and OTP are required" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user.otp || !user.otpExpires || user.otpExpires < new Date()) return res.status(400).json({ message: "OTP expired or invalid" });
+    const isMatch = await bcrypt.compare(otp, user.otp);
+    if (!isMatch) return res.status(400).json({ message: "Invalid OTP" });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+    res.status(200).json({ message: "OTP verified successfully", token });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to verify OTP", error: error.message });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+    if (!token || !password || !confirmPassword) return res.status(400).json({ message: "Token, password, and confirm password are required" });
+    if (password !== confirmPassword) return res.status(400).json({ message: "Passwords do not match" });
+    if (password.length < 8) return res.status(400).json({ message: "Password must be at least 8 characters" });
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findById(decoded.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    user.password = await bcrypt.hash(password, 10);
+    await user.save();
+    res.status(200).json({ message: "Password reset successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to reset password", error: error.message });
+  }
+};
 
 export {
-
   searchUserInfo,
   updateUserData,
   getUserCredits,
@@ -834,7 +410,10 @@ export {
   fetchAllusers,
   getAllApiCountValue,
   searchCompanies,
-  sendInvite
+  sendInvite,
+  updateProfile,
+  getProfile,
+  sendOtp,
+  verifyOtp,
+  resetPassword
 };
-
-

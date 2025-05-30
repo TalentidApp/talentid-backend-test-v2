@@ -21,13 +21,9 @@ export async function sendMail(
   generatedPassword = null
 ) {
   try {
-    console.log("Email Details:", { email, userId, subject, emailType, fullname, credits, additionalData });
-    console.log("Mail credentials:", process.env.mail_user, process.env.mail_pass);
-
     if (!process.env.mail_user || !process.env.mail_pass || !process.env.mail_host) {
       throw new Error("Mail environment variables are not properly set.");
     }
-
     const transport = nodemailer.createTransport({
       host: "smtp.zeptomail.in",
       port: 587,
@@ -36,11 +32,9 @@ export async function sendMail(
         pass: process.env.mail_pass,
       },
     });
-
     let htmlContent = "";
     let token, tokenExpires, tokenData;
     let findUser;
-
     switch (emailType) {
       case "verifyEmail":
         findUser = await User.findById(userId);
@@ -56,7 +50,6 @@ export async function sendMail(
             <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "otp":
         htmlContent = `
           <h2>Email Verification</h2>
@@ -67,7 +60,16 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
+      case "recruiter-otp":
+        htmlContent = `
+          <h2>Password Reset OTP</h2>
+          <p>Hello ${fullname},</p>
+          <p>Your OTP for password reset is: <strong>${otp}</strong></p>
+          <p>Please enter this OTP within 5 minutes to proceed with resetting your password.</p>
+          <p>If you didn’t request this, please ignore this email.</p>
+          <p>Regards,<br>talentid.app</p>
+        `;
+        break;
       case "verify":
         htmlContent = `
           <h2>User Verification</h2>
@@ -76,7 +78,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "candidate-forgot-password":
         findUser = await HiringCandidate.findById(userId);
         if (!findUser) throw new Error("User not found for password reset.");
@@ -89,7 +90,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "resetPassword":
         findUser = await User.findById(userId);
         if (!findUser) throw new Error("User not found for password reset.");
@@ -108,7 +108,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "credits":
         htmlContent = `
           <h2>Credit Update</h2>
@@ -117,7 +116,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-release":
         htmlContent = `
           <h2>Offer Letter</h2>
@@ -139,19 +137,7 @@ export async function sendMail(
           <p>If you have any questions, please contact us.</p>
           <p>Regards,<br>talentid.app</p>
         `;
-        break; htmlContent = `
-          <h2>Offer Letter</h2>
-          <p>Hello ${candidateName},</p>
-          <p>Congratulations! You've been offered the position of ${jobTitle} at ${companyName}.</p>
-          <p>Please log in to view and accept your offer letter:</p>
-          <a href="https://offers.talentid.app/" style="display: inline-block; padding: 10px 20px; background-color: #5C3386; color: white; text-decoration: none; border-radius: 5px;">View Offer Letter</a>
-          <p>Joining Date: ${joiningDate}</p>
-          <p>Offer Expiry Date: ${expiryDate}</p>
-          <p>If you have any questions, please contact us.</p>
-          <p>Regards,<br>talentid.app</p>
-        `;
         break;
-
       case "offer-reminder":
         htmlContent = `
           <h2>Offer Reminder</h2>
@@ -165,7 +151,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "candidate-signup":
         htmlContent = `
           <h2>Welcome to TalentId!</h2>
@@ -175,7 +160,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "teamMemberAdded":
         htmlContent = `
           <h2>Welcome to the Team!</h2>
@@ -185,7 +169,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "teamMemberConfirmation":
         htmlContent = `
           <h2>Team Member Added</h2>
@@ -195,7 +178,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-rejected-candidate":
         htmlContent = `
           <h2>Offer Rejection Confirmation</h2>
@@ -205,7 +187,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "candidate-invite":
         htmlContent = `
           <h2>Welcome to talentid.app!</h2>
@@ -217,7 +198,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-rejected-admin":
         htmlContent = `
           <h2>Offer Rejected by Candidate</h2>
@@ -228,17 +208,15 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-retracted-candidate":
         htmlContent = `
           <h2>Offer Retracted</h2>
           <p>Hello ${fullname},</p>
           <p>We regret to inform you that the offer for the position of ${jobTitle} at ${companyName} has been retracted.</p>
-          <p>If you have any questions, please feel free to contact us.</p>
+          <p>If you have any questions, please contact us.</p>
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-retracted-admin":
         htmlContent = `
           <h2>Offer Retracted Notification</h2>
@@ -250,7 +228,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-accepted-admin":
         htmlContent = `
           <h2>Offer Accepted by Candidate</h2>
@@ -261,17 +238,15 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "offer-ghosted-admin":
         htmlContent = `
-    <h2>Candidate Accepted Another Offer</h2>
-    <p>Hello ${fullname},</p>
-    <p>The candidate (${additionalData.candidateEmail}) has accepted another offer and may no longer be available.</p>
-    <p>Please feel free to reach out if you'd like to confirm their current availability or discuss next steps.</p>
-    <p>Regards,<br>talentid.app</p>
-  `;
+          <h2>Candidate Accepted Another Offer</h2>
+          <p>Hello ${fullname},</p>
+          <p>The candidate (${additionalData.candidateEmail}) has accepted another offer and may no longer be available.</p>
+          <p>Please feel free to reach out if you'd like to confirm their current availability or discuss next steps.</p>
+          <p>Regards,<br>talentid.app</p>
+        `;
         break;
-
       case "document-verified":
         findUser = await User.findById(userId);
         if (!findUser) throw new Error("User not found for document verification.");
@@ -288,7 +263,6 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "document-unverified":
         htmlContent = `
           <h2>Document Verification Revoked</h2>
@@ -298,94 +272,79 @@ export async function sendMail(
           <p>Regards,<br>talentid.app</p>
         `;
         break;
-
       case "test-invitation":
         htmlContent = `
-    <h2>Technical Assessment for ${jobTitle}</h2>
-    <p>Dear ${candidateName},</p>
-    <p>You have been invited to complete a technical assessment for the ${jobTitle} position at ${companyName}.</p>
-    <p><strong>Scheduled Date and Time:</strong> ${additionalData.scheduledDate} (IST)</p>
-    <p><strong>Duration:</strong> ${additionalData.duration} minutes</p>
-    <p>Please click the link below to start the test at the scheduled time:</p>
-    <p><a href="${additionalData.testLink || '#'}" style="display: inline-block; padding: 10px 20px; background-color: #5C3386; color: white; text-decoration: none; border-radius: 5px;">Start Test</a></p>
-    <p><strong>Note:</strong> The test can be accessed up to 5 minutes early. Ensure your device's timezone is set correctly.</p>
-    <p>Best regards,</p>
-    <p>${companyName} Team</p>
-  `;
+          <h2>Technical Assessment for ${jobTitle}</h2>
+          <p>Dear ${candidateName},</p>
+          <p>You have been invited to complete a technical assessment for the ${jobTitle} position at ${companyName}.</p>
+          <p><strong>Scheduled Date and Time:</strong> ${additionalData.scheduledDate} (IST)</p>
+          <p><strong>Duration:</strong> ${additionalData.duration} minutes</p>
+          <p>Please click the link below to start the test at the scheduled time:</p>
+          <p><a href="${additionalData.testLink || '#'}" style="display: inline-block; padding: 10px 20px; background-color: #5C3386; color: white; text-decoration: none; border-radius: 5px;">Start Test</a></p>
+          <p><strong>Note:</strong> The test can be accessed up to 5 minutes early. Ensure your device's timezone is set correctly.</p>
+          <p>Best regards,</p>
+          <p>${companyName} Team</p>
+        `;
         break;
-
       case "test-schedule-notification":
         htmlContent = `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <h2 style="color: #333;">Technical Assessments Scheduled for ${jobTitle}</h2>
-      <p>Dear ${candidateName},</p>
-      <p>We are pleased to inform you that technical assessments for the <strong>${jobTitle}</strong> position at ${companyName} have been scheduled. Please prepare to demonstrate your skills and expertise at the following times:</p>
-      <h3 style="color: #555;">Scheduled Assessments</h3>
-      <ul style="list-style: none; padding: 0;">
-        ${additionalData.testDates
-            .map((test) => {
-              const testDateStr = test.date || "Date unavailable";
-              const testLink = test.link || "Link unavailable";
-              const statusNote = test.isPast
-                ? "<span style='color: red;'>Note: This test time has already passed. Please contact support.</span>"
-                : "";
-              return `
-              <li style="margin-bottom: 15px;">
-                <strong>Test ${test.number}</strong><br>
-                <strong>Date and Time:</strong> ${testDateStr} (IST)<br>
-                <strong>Duration:</strong> 60 minutes<br>
-                <strong>Test Link:</strong> <a href="${testLink}">${testLink}</a> (available at the scheduled time)<br>
-                ${statusNote}
-              </li>
-            `;
-            })
-            .join("")}
-      </ul>
-      <h3 style="color: #555;">Topics to Prepare</h3>
-      <p>The assessments will cover the following technical skills:</p>
-      <ul style="padding-left: 20px;">
-        ${additionalData.skills.length > 0
-            ? additionalData.skills.map((skill) => `<li>${skill}</li>`).join("")
-            : `<li>General programming concepts relevant to the ${jobTitle} role</li>`}
-      </ul>
-      <p><strong>Preparation:</strong> Please review the listed topics and be ready to start each assessment promptly at the scheduled time. You will also receive a separate email with the test link at the start of each assessment.</p>
-      <p>If you have any questions or if a test time has passed, please contact our team at <a href="mailto:support@talentid.app">support@talentid.app</a>.</p>
-      <p>Best regards,</p>
-      <p style="font-weight: bold;">${companyName} Recruitment Team</p>
-    </div>
-  `;
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <h2 style="color: #333;">Technical Assessments Scheduled for ${jobTitle}</h2>
+            <p>Dear ${candidateName},</p>
+            <p>We are pleased to inform you that technical assessments for the <strong>${jobTitle}</strong> position at ${companyName} have been scheduled. Please prepare to demonstrate your skills and expertise at the following times:</p>
+            <h3 style="color: #555;">Scheduled Assessments</h3>
+            <ul style="list-style: none; padding: 0;">
+              ${additionalData.testDates
+                .map((test) => {
+                  const testDateStr = test.date || "Date unavailable";
+                  const testLink = test.link || "Link unavailable";
+                  const statusNote = test.isPast
+                    ? "<span style='color: red;'>Note: This test time has already passed. Please contact support.</span>"
+                    : "";
+                  return `
+                    <li style="margin-bottom: 15px;">
+                      <strong>Test ${test.number}</strong><br>
+                      <strong>Date and Time:</strong> ${testDateStr} (IST)<br>
+                      <strong>Duration:</strong> 60 minutes<br>
+                      <strong>Test Link:</strong> <a href="${testLink}">${testLink}</a> (available at the scheduled time)<br>
+                      ${statusNote}
+                    </li>
+                  `;
+                })
+                .join("")}
+            </ul>
+            <h3 style="color: #555;">Topics to Prepare</h3>
+            <p>The assessments will cover the following technical skills:</p>
+            <ul style="padding-left: 20px;">
+              ${additionalData.skills.length > 0
+                ? additionalData.skills.map((skill) => `<li>${skill}</li>`).join("")
+                : `<li>General programming concepts relevant to the ${jobTitle} role</li>`}
+            </ul>
+            <p><strong>Preparation:</strong> Please review the listed topics and be ready to start each assessment promptly at the scheduled time. You will also receive a separate email with the test link at the start of each assessment.</p>
+            <p>If you have any questions or if a test time has passed, please contact our team at <a href="mailto:support@talentid.app">support@talentid.app</a>.</p>
+            <p>Best regards,</p>
+            <p style="font-weight: bold;">${companyName} Recruitment Team</p>
+          </div>
+        `;
         break;
       default:
         throw new Error(`Invalid email type: ${emailType}`);
     }
-
     if (!htmlContent) throw new Error("Failed to generate email content.");
-
     const mailOptions = {
       from: '"talentid.app" <Support@talentid.app>',
       to: email,
       subject: `${subject} - Talent ID`,
       html: htmlContent,
     };
-
-    // Only include attachments for cases where explicitly needed (not for offer-release)
     const attachments = [];
     if (emailType !== "offer-release" && emailType !== "offer-reminder" && offerLetterLink) {
-      attachments.push({
-        filename: "OfferLetter.pdf",
-        path: offerLetterLink,
-      });
+      attachments.push({ filename: "OfferLetter.pdf", path: offerLetterLink });
     }
-    if (attachments.length > 0) {
-      mailOptions.attachments = attachments;
-    }
-
+    if (attachments.length > 0) mailOptions.attachments = attachments;
     const mailResponse = await transport.sendMail(mailOptions);
-    console.log("Mail sent successfully:", mailResponse);
-
     return mailResponse;
   } catch (error) {
-    console.error("Error in sendMail:", error.message);
     throw error;
   }
 }
