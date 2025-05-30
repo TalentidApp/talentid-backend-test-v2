@@ -15,6 +15,7 @@ const offerSchema = new mongoose.Schema(
     unsignedOfferLetterLink: { type: String },
     signedOfferLetterLink: { type: String },
     isEngagementStart: { type: Boolean, default: false },
+    companyName : { type : String , required : false},
     status: {
       type: String,
       enum: ["Pending", "Accepted", "Declined", "OnBoarding", "Ghosted", "Expired", "Retracted"],
@@ -30,6 +31,7 @@ const offerSchema = new mongoose.Schema(
     acceptedLetter: { type: String },
     digioDocumentId: { type: String },
     signingPartyEmail: { type: String },
+
     signingStatus: {
       type: String,
       enum: Object.values(signing_status),

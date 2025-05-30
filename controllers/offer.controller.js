@@ -142,6 +142,7 @@ const createOffer = async (req, res) => {
       salary,
       offerLetterLink,
       joiningDate,
+      companyName,
       expirationDate: expiryDate,
       signingPartyEmail: candidateEmail,
       signingStatus: "requested",

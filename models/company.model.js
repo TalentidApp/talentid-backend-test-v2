@@ -42,6 +42,12 @@ const companySchema = new mongoose.Schema(
       trim: true,
       maxlength: [500, "About cannot exceed 500 characters."],
     },
+    bio: {
+      type: String,
+      required: [true, "Bio is required."],
+      trim: true,
+      maxlength: [500, "Bio cannot exceed 500 characters."],
+    },
     contactPhone: {
       type: String,
       required: [true, "Contact phone is required."],

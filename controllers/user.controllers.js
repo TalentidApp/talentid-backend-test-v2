@@ -111,6 +111,11 @@ const searchUserInfo = async (req, res) => {
     }
 
     const user = await User.findById(userId);
+
+    const targetUser = await User.findOne({ email });
+    if (!targetUser) return res.status(404).json({ message: "user not found" });
+
+
     if (!user) return res.status(404).json({ message: "User not found" });
     if (!user.isVerified) return res.status(401).json({ message: "User is not verified" });
     if (user.credits <= 0) return res.status(403).json({ message: "Insufficient credits" });
@@ -633,7 +638,7 @@ const deleteUserAccount = async (req, res) => {
 const searchCompanies = async (req, res) => {
   try {
     const users = await User.find({}).select('company');
-    const companyNames = [...new Set(users.map(user => user.company).filter(Boolean))]; 
+    const companyNames = [...new Set(users.map(user => user.company).filter(Boolean))];
 
     if (!companyNames.length) {
       return res.status(404).json({ message: "No companies found" });
@@ -805,9 +810,9 @@ const sendInvite = async (req, res) => {
       { signupLink: `${process.env.frontend_url}/signup` }
     );
 
-    user.inviteLinks.push({ 
-      email: email, 
-      type: 'invite' 
+    user.inviteLinks.push({
+      email: email,
+      type: 'invite'
     });
     await user.save();
 
