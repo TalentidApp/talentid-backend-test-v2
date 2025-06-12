@@ -92,6 +92,7 @@ userSchema.pre("save", function (next) {
     this.notificationPreferences = undefined;
     this.teams = undefined;
     this.inviteLinks = undefined;
+    this.offerLettersSent = undefined;
     this.documents = undefined;
     this.verifiedDocuments = undefined;
   }

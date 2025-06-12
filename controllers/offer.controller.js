@@ -11,6 +11,7 @@ import FormData from "form-data";
 import fs from "fs";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
+import { plans } from "../config/index.js";
 
 const DIGIO_BASE_URL = "https://api-sandbox.digio.in/v2/client/document/upload";
 const BASE64_AUTH = Buffer.from(`${process.env.DIGIO_CLIENT_ID}:${process.env.DIGIO_CLIENT_SECRET}`).toString("base64");
@@ -102,6 +103,52 @@ const createOffer = async (req, res) => {
     }
 
     const hrId = req.user.id;
+    const user = await User.findById(hrId).session(session);
+    if (!user) return res.status(404).json({ error: "User not found." });
+
+    console.log(`User role: ${user.role}, offerLettersSent: ${user.offerLettersSent}`);
+
+      // Check  plan and expiry
+      let plan = plans[user.subscriptionPlan] || plans.FREE;
+      if (user.subscriptionPlan !== "Free" && user.subscriptionExpiry < new Date()) {
+        user.subscriptionPlan = "Free";
+        plan = plans.FREE;
+        await user.save({ session });
+        console.log(`Subscription expired, reverted to Free plan for user ${hrId}`);
+      }
+
+      // Reset offerLettersSent monthly using lastResetDate
+      const now = new Date();
+      const lastReset = new Date(user.lastResetDate || now);
+      const isNewMonth = now.getMonth() !== lastReset.getMonth() || now.getFullYear() !== lastReset.getFullYear();
+      if (isNewMonth) {
+        user.offerLettersSent = 0;
+        user.lastResetDate = now;
+        await user.save({ session });
+        console.log(`Reset offerLettersSent to 0 for user ${hrId} (new month)`);
+      }
+
+      console.log(`Before limit check - offerLettersSent: ${user.offerLettersSent}`);
+
+      if (plan.name !== "Enterprise") {
+        const offerLimit = parseInt(plan.features.find(f => f.includes("offers/month")).match(/\d+/)[0], 10);
+        console.log(`Offer limit for ${plan.name} plan: ${offerLimit}`);
+
+        if (user.offerLettersSent >= offerLimit) {
+          await session.abortTransaction();
+          session.endSession();
+          console.log("dd")
+          return res.status(403).json({
+            error: `Monthly offer limit of ${plan.name} plan exceeded.`,
+            suggestion: "Upgrade your plan at https://x.ai/grok for higher limits."
+          });
+        }
+      }
+
+      user.offerLettersSent += 1;
+      await user.save({ session });
+      console.log(`After increment - offerLettersSent: ${user.offerLettersSent}`);
+
     const { offerLetter, candidateResume } = req.files;
 
     const offerLetterUpload = await UploadImageToCloudinary(offerLetter, "Candidate_Offer_Letter");
@@ -156,14 +203,10 @@ const createOffer = async (req, res) => {
     candidate.offers.push(newOffer._id);
     await candidate.save({ session });
 
-    const updateFields = { $inc: { offerLettersSent: 1 } };
-    if (status === "Ghosted") {
-      updateFields.$inc.ghostingCount = 1;
-    }
-    await User.findByIdAndUpdate(hrId, updateFields, { new: true, session });
-
     await session.commitTransaction();
     session.endSession();
+
+    console.log(`Transaction committed for user ${hrId}, offerLettersSent: ${user.offerLettersSent}`);
 
     await sendMail(
       candidate.email,
@@ -187,7 +230,7 @@ const createOffer = async (req, res) => {
   } catch (error) {
     await session.abortTransaction();
     session.endSession();
-    console.error(" Error in createOffer:", error.message);
+    console.error("Error in createOffer:", error.message);
     return res.status(500).json({ error: error.message || "Internal Server Error" });
   }
 };

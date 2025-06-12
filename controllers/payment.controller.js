@@ -32,7 +32,7 @@ export const createPaymentLink = async (req, res) => {
       });
     }
 
-    const response = await axios.post(`${process.env.CASHFREE_API}`, {
+    const response = await axios.post(`https://api.cashfree.com/pg/links`, {
       customer_details: {
         customer_name: customerDetails.customer_name,
         customer_email: customerDetails.customer_email,
@@ -44,8 +44,8 @@ export const createPaymentLink = async (req, res) => {
         send_email: true,
       },
       order_meta: {
-        return_url: `https://offers.talentid.app/settings/subscription`,
-        notify_url: `https://2c90-2405-201-c015-a855-2c31-d80b-8c7b-faea.ngrok-free.app/api/payments/cashfree-webhook`,
+        return_url: `https://offers.talentid.app/settings/subscription?orderId=${orderId}&status={status}`,
+        notify_url: `https://talentid-backend-v2.vercel.app/api/payments/cashfree-webhook`,
       },
       link_amount: orderAmount,
       link_currency: "INR",
@@ -106,13 +106,19 @@ export async function initializePayment(req, res) {
     console.debug("Webhook headers:", req.headers);
 
     const { data } = req.body;
-    const payment_status = data?.payment?.payment_status;
-    const customer_email = data?.customer_details?.customer_email;
+    if (!data) {
+      console.warn("Received empty or invalid webhook payload, likely a test request");
+      return res.status(200).json({ message: "Webhook received, but no data to process (test request)" });
+    }
 
-    if (!payment_status || !customer_email) {
-      console.error("Missing required fields", { payment_status, customer_email });
+    const payment_status = data.link_status;
+    const customer_email = data?.customer_details?.customer_email;
+    const link_id = data?.link_id;
+
+    if (!payment_status || !customer_email || !link_id) {
+      console.error("Missing required fields", { payment_status, customer_email, link_id });
       return res.status(400).json({
-        message: "Missing required fields: payment_status and customer_email are required",
+        message: "Missing required fields: link_status, customer_email, and link_id are required",
         error: null,
         data: null,
       });
@@ -120,8 +126,7 @@ export async function initializePayment(req, res) {
 
     console.debug("Processing webhook for", { customer_email, payment_status });
 
-    // Call updateOrderDetails
-    const result = await updateOrderDetails(customer_email, payment_status);
+    const result = await updateOrderDetails(link_id, payment_status);
     console.debug("updateOrderDetails result", result);
 
     return res.status(result.status).json({
@@ -153,14 +158,16 @@ export async function updateOrderManually(req, res) {
       });
     }
 
-    const result = await updateOrderDetails(order.customerDetails.customer_email, "SUCCESS");
+    const result = await updateOrderDetails(order.link_id, "PAID");
     return res.status(result.status).json({
       message: result.message,
       error: result.error,
       data: result.data,
     });
   } catch (error) {
-    console.error("Error updating order manually:", error.message, error.stack);
+    console.error("Error updating order manually:", error.message, error
+
+.stack);
     return res.status(500).json({
       message: "Internal server error while updating order",
       error: error.message,
@@ -177,8 +184,6 @@ const fetchPaymentLinkDetails = async (linkId) => {
         'x-api-version': '2023-08-01',
         'x-client-id': process.env.CASHFREE_APP_ID,
         'x-client-secret': process.env.CASHFREE_SECRET_KEY,
-        'x-idempotency-key': '47bf8872-46fe-11ee-be56-0242ac120002',
-        'x-request-id': process.env.CASHFREE_APP_ID,
       },
     });
 
@@ -190,60 +195,66 @@ const fetchPaymentLinkDetails = async (linkId) => {
   }
 };
 
-export async function updateOrderDetails(customer_email, paymentStatus) {
+export async function updateOrderDetails(linkId, paymentStatus) {
   try {
-    console.debug("Update Order Details:", { customer_email, paymentStatus });
+    console.debug("Update Order Details:", { linkId, paymentStatus });
 
-    if (!customer_email || !paymentStatus) {
+    if (!linkId || !paymentStatus) {
       return {
         status: 400,
         data: null,
-        message: "Missing required fields: customer_email and paymentStatus are required",
+        message: "Missing required fields: linkId and paymentStatus are required",
         error: null,
       };
     }
 
     const normalizedPaymentStatus = paymentStatus.toUpperCase();
-    if (!Object.values(paymentStatusEnum).includes(normalizedPaymentStatus)) {
-      return {
-        status: 400,
-        data: null,
-        message: `Invalid payment status: ${paymentStatus}`,
-        error: null,
-      };
+    let mappedStatus;
+    switch (normalizedPaymentStatus) {
+      case "PAID":
+        mappedStatus = paymentStatusEnum.SUCCESS;
+        break;
+      case "PARTIALLY_PAID":
+        mappedStatus = paymentStatusEnum.PARTIAL;
+        break;
+      case "EXPIRED":
+      case "CANCELLED":
+        mappedStatus = paymentStatusEnum.FAILED;
+        break;
+      default:
+        return {
+          status: 400,
+          data: null,
+          message: `Invalid payment status: ${paymentStatus}`,
+          error: null,
+        };
     }
 
-    const mostRecentOrder = await Order.findOne({
-      "customerDetails.customer_email": customer_email,
-    }).sort({ createdAt: -1 });
-
-    if (!mostRecentOrder) {
+    const order = await Order.findOne({ link_id: linkId });
+    if (!order) {
       return {
         status: 404,
         data: null,
-        message: "No order found for this customer email",
+        message: "No order found for this link ID",
         error: null,
       };
     }
 
-    if (
-      mostRecentOrder.paymentStatus === paymentStatusEnum.SUCCESS &&
-      normalizedPaymentStatus === paymentStatusEnum.SUCCESS
-    ) {
+    if (order.paymentStatus === paymentStatusEnum.SUCCESS && mappedStatus === paymentStatusEnum.SUCCESS) {
       return {
         status: 200,
-        data: { order: mostRecentOrder },
+        data: { order },
         message: "Order already processed as SUCCESS",
         error: null,
       };
     }
 
-    mostRecentOrder.paymentStatus = normalizedPaymentStatus;
-    await mostRecentOrder.save();
-    console.debug("Order updated:", mostRecentOrder);
+    order.paymentStatus = mappedStatus;
+    await order.save();
+    console.debug("Order updated:", order);
 
-    if (normalizedPaymentStatus === paymentStatusEnum.SUCCESS) {
-      const userId = mostRecentOrder.userId;
+    if (mappedStatus === paymentStatusEnum.SUCCESS) {
+      const userId = order.userId;
       if (!userId) {
         return {
           status: 404,
@@ -263,7 +274,7 @@ export async function updateOrderDetails(customer_email, paymentStatus) {
         };
       }
 
-      const creditsToAdd = typeof mostRecentOrder.credits === "number" ? mostRecentOrder.credits : 0;
+      const creditsToAdd = typeof order.credits === "number" ? order.credits : 0;
       const subscriptionExpiry = new Date();
       subscriptionExpiry.setDate(subscriptionExpiry.getDate() + 30);
 
@@ -284,7 +295,7 @@ export async function updateOrderDetails(customer_email, paymentStatus) {
 
       return {
         status: 200,
-        data: { order: mostRecentOrder, user: updateUser },
+        data: { order, user: updateUser },
         message: "Order status and user subscription updated successfully",
         error: null,
       };
@@ -292,7 +303,7 @@ export async function updateOrderDetails(customer_email, paymentStatus) {
 
     return {
       status: 200,
-      data: { order: mostRecentOrder },
+      data: { order },
       message: "Order status updated successfully",
       error: null,
     };

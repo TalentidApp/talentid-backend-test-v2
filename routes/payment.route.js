@@ -10,7 +10,7 @@ import protectRoute from "../middlewares/protectRoute.middleware.js";
 
 router.post("/create-payment-link",protectRoute,createPaymentLink);
 
-router.post("/cashfree-webhook",protectRoute,initializePayment);
+router.post("/cashfree-webhook",initializePayment);
 
 
 export default router;
